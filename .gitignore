@@ -47,7 +47,10 @@ venv.bak/
 # Logs
 logs/
 *.log
+/lib/
 
+.env
+.env.example
 # OS generated files
 .DS_Store
 .DS_Store?

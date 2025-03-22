@@ -1,62 +1,173 @@
 # PockEat API
 
-A RESTful API built with Flask for the PockEat application.
+A Flask-based REST API for food and exercise analysis using Google's Gemini API. This backend service is designed to work with the PockEat mobile app, providing food and exercise analysis capabilities.
 
-## Setup and Installation
+## Features
 
-1. Create a virtual environment:
+- **Food Analysis**:
+  - Analyze food from text descriptions
+  - Analyze food from images
+  - Analyze nutrition labels
+  - Correct food analysis based on user feedback
+
+- **Exercise Analysis**:
+  - Analyze exercise descriptions
+  - Correct exercise analysis based on user feedback
+
+## Setup
+
+### Prerequisites
+
+- Python 3.9+
+- A Google Gemini API key (https://ai.google.dev/)
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/pockeat-api.git
+   cd pockeat-api
    ```
-   python -m venv env
+
+2. Create a virtual environment and activate it:
+   ```bash
+   python -m venv venv
+   # Windows
+   venv\Scripts\activate
+   # Mac/Linux
+   source venv/bin/activate
    ```
 
-2. Activate the virtual environment:
-   - Windows:
-     ```
-     env\Scripts\activate
-     ```
-   - Mac/Linux:
-     ```
-     source env/bin/activate
-     ```
-
-3. Install dependencies:
-   ```
+3. Install the required dependencies:
+   ```bash
    pip install -r requirements.txt
    ```
 
-4. Set up environment variables by creating a `.env` file in the root directory.
-
-5. Initialize the database:
+4. Create a `.env` file in the root directory with the following variables:
    ```
-   flask db init
-   flask db migrate -m "Initial migration"
-   flask db upgrade
+   FLASK_ENV=development
+   SECRET_KEY=your-secret-key
+   GEMINI_API_KEY=your-gemini-api-key
    ```
 
-6. Run the development server:
-   ```
-   flask run
-   ```
+### Running the Application
+
+Run the application with:
+```bash
+python run.py
+```
+
+The API will be available at `http://localhost:5000`.
 
 ## API Endpoints
 
-(Documentation will be added as endpoints are developed)
+### Food Analysis
 
-## Project Structure
+- **Analyze Food Text Description**:
+  ```
+  POST /api/v1/food/text
+  Content-Type: application/json
+  
+  {
+    "food_description": "A grilled chicken sandwich with lettuce, tomato, and mayo"
+  }
+  ```
+
+- **Analyze Food Image**:
+  ```
+  POST /api/v1/food/analyze
+  Content-Type: multipart/form-data
+  
+  image: [file]
+  ```
+
+- **Analyze Nutrition Label**:
+  ```
+  POST /api/v1/food/nutrition-label
+  Content-Type: multipart/form-data
+  
+  image: [file]
+  servings: 1.0
+  ```
+
+- **Correct Food Analysis**:
+  ```
+  POST /api/v1/food/correct
+  Content-Type: application/json
+  
+  {
+    "food_entry": {...},  // Previous analysis result
+    "user_correction": "The chicken is grilled, not fried"
+  }
+  ```
+
+### Exercise Analysis
+
+- **Analyze Exercise**:
+  ```
+  POST /api/v1/exercise/analyze
+  Content-Type: application/json
+  
+  {
+    "description": "30 minutes of running at 6mph",
+    "user_weight": 70.5  // Optional, in kg
+  }
+  ```
+
+- **Correct Exercise Analysis**:
+  ```
+  POST /api/v1/exercise/correct
+  Content-Type: application/json
+  
+  {
+    "exercise_entry": {...},  // Previous analysis result
+    "user_correction": "I ran for 45 minutes, not 30"
+  }
+  ```
+
+## Development
+
+### Project Structure
 
 ```
 pockeat-api/
 ├── app/
-│   ├── __init__.py       # Flask application initialization
-│   ├── config.py         # Configuration settings
-│   ├── models/           # Database models
-│   ├── routes/           # API routes and resources
-│   ├── schemas/          # Marshmallow schemas for serialization
-│   └── utils/            # Utility functions
-├── migrations/           # Database migrations
-├── tests/                # Test suite
-├── .env                  # Environment variables (not in version control)
-├── .gitignore            # Git ignore file
-├── app.py                # Application entry point
-└── requirements.txt      # Project dependencies
+│   ├── api/
+│   │   ├── models/
+│   │   │   ├── food_analysis.py
+│   │   │   └── exercise_analysis.py
+│   │   └── routes/
+│   │       ├── __init__.py
+│   │       ├── food_routes.py
+│   │       └── exercise_routes.py
+│   ├── services/
+│   │   └── gemini/
+│   │       ├── base_gemini_service.py
+│   │       ├── exercise_analysis_service.py
+│   │       ├── food_image_analysis_service.py
+│   │       ├── food_text_analysis_service.py
+│   │       └── nutrition_label_analysis_service.py
+│   ├── __init__.py
+│   └── config.py
+├── tests/
+├── .env
+├── .gitignore
+├── requirements.txt
+├── run.py
+└── README.md
 ```
+
+### Running Tests
+
+```bash
+pytest
+```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgements
+
+- Google Gemini API for providing the AI capabilities
+- The PockEat mobile app team for their collaboration
