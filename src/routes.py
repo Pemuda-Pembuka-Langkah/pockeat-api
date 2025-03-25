@@ -2,6 +2,7 @@
 Routes for the Gemini API.
 """
 
+import os
 from flask import Blueprint, jsonify, request, current_app
 from werkzeug.exceptions import BadRequest, InternalServerError
 

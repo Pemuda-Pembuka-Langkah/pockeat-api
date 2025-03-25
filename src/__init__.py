@@ -13,7 +13,7 @@ load_dotenv()
 
 db = SQLAlchemy()
 migrate = Migrate()
-gemini_service = None
+gemini_service = GeminiService()
 
 def create_app(config=None):
     app = Flask(__name__)
