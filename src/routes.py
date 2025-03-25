@@ -239,6 +239,13 @@ async def correct_exercise_analysis():
     except Exception as e:
         raise BadRequest(f"Invalid previous_result: {str(e)}")
 
+@api_bp.route('/debug-env')
+def debug_env():
+    return jsonify({
+        "has_key": bool(os.getenv("GOOGLE_API_KEY")),
+        "env_vars": list(os.environ.keys())
+    })
+
 
 # Error handlers
 @api_bp.errorhandler(BadRequest)
