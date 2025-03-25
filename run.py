@@ -1,23 +1,28 @@
+#!/usr/bin/env python
+"""
+Run script for PockEat API Flask application.
+
+This script handles the startup of the Flask application with proper configuration,
+environment loading, and debugging options.
+"""
+
 import os
 from dotenv import load_dotenv
-from app import create_app
+from src import create_app
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Get configuration environment from environment variable or default to development
-env = os.getenv('FLASK_ENV', 'development')
+# Create Flask application instance
+app = create_app()
 
-# Create the Flask application
-app = create_app(env)
-
-if __name__ == '__main__':
-    # Get port from environment variable or default to 5000
-    port = int(os.getenv('PORT', 5000))
+if __name__ == "__main__":
+    # Get host and port from environment variables or use defaults
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", 5000))
+    debug = os.getenv("FLASK_ENV", "development").lower() == "development"
+    
+    print(f"Starting PockEat API on {host}:{port} (Debug: {debug})")
     
     # Run the Flask application
-    app.run(
-        host='0.0.0.0',
-        port=port, 
-        debug=app.config.get('DEBUG', env == 'development')
-    ) 
+    app.run(host=host, port=port, debug=debug) 

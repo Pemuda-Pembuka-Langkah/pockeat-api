@@ -1,10 +1,45 @@
-# Python
+# Python bytecode
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+
+# Environment files
+.env
+.venv
 env/
+venv/
+ENV/
+.env.*
+env.bak/
+venv.bak/
+
+# Debug files
+debug_*.py
+*debug*.py
+debug/
+debug_logs/
+*.log
+
+# Example files
+example_*.py
+*example*.py
+examples/
+
+# Test files
+test_*.py
+*test*.py
+tests/
+test-*.json
+*test*.json
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Distribution / packaging
+.Python
 build/
 develop-eggs/
 dist/
@@ -16,46 +51,52 @@ lib64/
 parts/
 sdist/
 var/
+wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 
-# Flask
-instance/
-.webassets-cache
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
 
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+# Jupyter Notebook
+.ipynb_checkpoints
 
-# IDE
-.idea/
+# VS Code
 .vscode/
-*.swp
-*.swo
+*.code-workspace
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
+# PyCharm
+.idea/
+*.iml
+*.iws
+*.ipr
 
-# Logs
-logs/
-*.log
-/lib/
-
-.env
-.env.example
-# OS generated files
+# macOS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
+
+# Windows
+Thumbs.db
 ehthumbs.db
-Thumbs.db 
+Desktop.ini
+
+# SQLite database files
+*.db
+*.sqlite3
+*.sqlite
+
+# Specific files for this project
+debug_food.py
+debug_api.py
+test_gemini.py
+test_api.py 
+cli.py
