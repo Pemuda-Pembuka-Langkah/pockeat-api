@@ -19,10 +19,10 @@ app = create_app()
 if __name__ == "__main__":
     # Get host and port from environment variables or use defaults
     host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", 5000))
-    debug = os.getenv("FLASK_ENV", "development").lower() == "development"
+    port = int(os.getenv("PORT", 8080))
+    # debug = os.getenv("FLASK_ENV", "development").lower() == "development"
     
-    print(f"Starting PockEat API on {host}:{port} (Debug: {debug})")
+    print(f"Starting PockEat API on {host}:{port} ")
     
     # Run the Flask application
-    app.run(host=host, port=port, debug=debug) 
+    app.run(host=host, port=port) 
