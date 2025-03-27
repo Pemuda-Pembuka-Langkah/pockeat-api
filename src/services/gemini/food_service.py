@@ -11,7 +11,7 @@ import json
 from src.models.food_analysis import FoodAnalysisResult
 from src.services.gemini.base_service import BaseLangChainService
 from src.services.gemini.exceptions import GeminiServiceException
-from src.services.gemini.food.food_analysis_parser import FoodAnalysisParser
+from src.services.gemini.utils.food_parser import FoodAnalysisParser
 
 
 class FoodAnalysisService(BaseLangChainService):
@@ -30,45 +30,70 @@ class FoodAnalysisService(BaseLangChainService):
             GeminiServiceException: If the analysis fails.
         """
         try:
-            # Create a prompt template with properly escaped JSON
-            prompt_template = """
-            Analyze this food description: "{description}"
-            
-            Please analyze the ingredients and nutritional content based on this description.
-            If not described, assume a standard serving size and ingredients for 1 person only.
-            
-            Provide a comprehensive analysis including:
-            - The name of the food
-            - A complete list of ingredients with servings composition (in grams) from portion estimation or standard serving size.
-            - Detailed macronutrition information ONLY of calories, protein, carbs, fat, sodium, fiber, and sugar. No need to display other macro information.
-            - Add warnings if the food contains high sodium (>500mg) or high sugar (>20g).
-            
-            Return your response as a strict JSON object with this exact format with NO COMMENTS:
-            {{
-              "food_name": "string",
-              "ingredients": [
-                {{
-                  "name": "string",
-                  "servings": number
-                }}
-              ],
-              "nutrition_info": {{
-                "calories": number,
-                "protein": number,
-                "carbs": number,
-                "fat": number,
-                "sodium": number,
-                "fiber": number,
-                "sugar": number
-              }},
-              "warnings": ["string", "string"] 
-            }}
-            """
-            
+            # Create a prompt template
             prompt = PromptTemplate(
                 input_variables=["description"],
-                template=prompt_template
+                template="""
+                You are a food recognition and nutrition analysis expert. Carefully analyze this food description: "{description}"
+                
+                Please analyze the ingredients and nutritional content based on this description.
+                If not described, assume a standard serving size and ingredients for 1 person only.
+                FOLLOW MY COMMANDS AND ONLY MY COMMANDS, DONT BE STUPID.
+
+                Provide a comprehensive analysis including:
+                - The name of the food
+                - A complete list of ingredients with servings composition (in grams) from portion estimation or standard serving size.
+                - Detailed macronutrition information ONLY of calories, protein, carbs, fat, sodium, fiber, and sugar. No need to display other macro information.
+                - Add warnings if the food contains high sodium (>500mg) or high sugar (>20g).
+                
+
+                BE VERY THOROUGH. YOU WILL BE FIRED. THE CUSTOMER CAN GET POISONED. BE VERY THOROUGH.
+
+                Return your response as a strict JSON object with this exact format with NO COMMENTS:
+                {
+                    "food_name": "string",
+                    "ingredients": [
+                    {
+                        "name": "string",
+                        "servings": number
+                    }
+                    ],
+                    "nutrition_info": {
+                    "calories": number,
+                    "protein": number,
+                    "carbs": number,
+                    "fat": number,
+                    "sodium": number,
+                    "fiber": number,
+                    "sugar": number
+                    },
+                    "warnings": ["string", "string"] 
+                }
+                
+                IMPORTANT: Do not include any comments, annotations or notes in the JSON. Do not use '#' or '//' characters. Only return valid JSON.
+                For the warnings array, only allowed to put THIS 2 VALUES:
+                - Include "High sodium content" (exact text) if sodium exceeds 500mg
+                - Include "High sugar content" (exact text) if sugar exceeds 20g
+                If there are no warnings, you can include an empty array [] for warnings.
+                
+                If you cannot identify the food or analyze it properly, the food cant exist in real life or if the food is not edible use this format:
+                {
+                    "error": "Description of the issue",
+                    "food_name": "Unknown",
+                    "ingredients": [],
+                    "nutrition_info": {
+                    "calories": 0,
+                    "protein": 0,
+                    "carbs": 0,
+                    "fat": 0,
+                    "sodium": 0,
+                    "fiber": 0,
+                    "sugar": 0
+                    },
+                    "warnings": []
+                } """
             )
+
             
             # Use RunnableSequence instead of LLMChain
             runnable = prompt | self.text_llm | StrOutputParser()
@@ -83,37 +108,80 @@ class FoodAnalysisService(BaseLangChainService):
             return FoodAnalysisParser.parse(text_output)
         
         except Exception as e:
-            raise GeminiServiceException(f"Failed to analyze food description: {str(e)}")
+            print(f"Food analysis error: {str(e)}")
+            
+            # Return error response instead of raising exception
+            error_data = {
+                "error": f"Failed to analyze food: {str(e)}",
+                "food_name": "Unknown",
+                "ingredients": [],
+                "nutrition_info": {
+                    "calories": 0,
+                    "protein": 0,
+                    "carbs": 0,
+                    "fat": 0,
+                    "sodium": 0,
+                    "fiber": 0,
+                    "sugar": 0
+                },
+                "warnings": []
+            }
+            return FoodAnalysisResult.from_dict(error_data)
     
     async def analyze_by_image(self, image_file) -> FoodAnalysisResult:
-        """Analyze a food image.
-        
-        Args:
-            image_file: The image file (file-like object).
-            
-        Returns:
-            The food analysis result.
-            
-        Raises:
-            GeminiServiceException: If the analysis fails.
-        """
+        """Analyze a food image."""
         try:
-            # Read the image bytes
-            image_bytes = await self._read_image_bytes(image_file)
+            # Check if image file exists
+            if not image_file:
+                return FoodAnalysisResult.from_dict({
+                    "error": "No image file provided",
+                    "food_name": "Unknown",
+                    "ingredients": [],
+                    "nutrition_info": {
+                        "calories": 0, "protein": 0, "carbs": 0, "fat": 0,
+                        "sodium": 0, "fiber": 0, "sugar": 0
+                    },
+                    "warnings": []
+                })
             
-            # Create message content with properly escaped JSON formatting
+            # Try to read the image bytes with better error handling
+            try:
+                image_bytes = await self._read_image_bytes(image_file)
+            except Exception as e:
+                print(f"Image reading error: {str(e)}")
+                return FoodAnalysisResult.from_dict({
+                    "error": f"Failed to process image: {str(e)}",
+                    "food_name": "Unknown",
+                    "ingredients": [],
+                    "nutrition_info": {
+                        "calories": 0, "protein": 0, "carbs": 0, "fat": 0,
+                        "sodium": 0, "fiber": 0, "sugar": 0
+                    },
+                    "warnings": []
+                })
+            
+            # Define message text - this was missing in the previous update!
             message_text = """
-            Analyze this food in the image.
+            You are a food recognition and nutrition analysis expert. Carefully analyze this image and identify any food or meal present in real life.
             
-            Please analyze the ingredients and nutritional content based on what you can see.
-            If not clear, assume a standard serving size and ingredients for 1 person only.
+            Please look for:
+            - Prepared meals
+            - Individual food items
+            - Snacks
+            - Beverages
+            - Fruits and vegetables
+            - Packaged food products
+            - Amount of food items
             
-            Provide a comprehensive analysis including:
-            - The name of the food
-            - A complete list of ingredients with servings composition (in grams) from portion estimation or standard serving size.
+            Even if the image quality is not perfect or the food is partially visible, please do your best to identify it and provide an analysis.
+            
+            For the identified food, provide a comprehensive analysis including:
+            - The specific name of the food
+            - Analyze the plating surface of the food and provide a detailed list of likely ingredients with estimated servings composition in grams, estimate based on size and portion to the best of your ability.
             - Detailed macronutrition information ONLY of calories, protein, carbs, fat, sodium, fiber, and sugar. No need to display other macro information.
-            - Add warnings if the food contains high sodium (>500mg) or high sugar (>20g).
+            - Add warnings if the food contains high sodium (>500mg) or high sugar (>20g)
             
+            BE VERY THOROUGH. YOU WILL BE FIRED. THE CUSTOMER CAN GET POISONED. BE VERY THOROUGH.
             Return your response as a strict JSON object with this exact format with NO COMMENTS:
             {
               "food_name": "string",
@@ -132,39 +200,81 @@ class FoodAnalysisService(BaseLangChainService):
                 "fiber": number,
                 "sugar": number
               },
-              "warnings": ["string", "string"] 
+              "warnings": ["string", "string"]
+            }
+            
+            IMPORTANT: Do not include any comments, annotations or notes in the JSON. Do not use '#' or '//' characters. Only return valid JSON.
+            For the warnings array:
+            - Include "High sodium content" (exact text) if sodium exceeds 500mg
+            - Include "High sugar content" (exact text) if sugar exceeds 20g
+            If there are no warnings, you can include an empty array [] for warnings.
+            
+            If absolutely no food can be detected in the image, only then use this format:
+            {
+              "error": "No food detected in image",
+              "food_name": "Unknown",
+              "ingredients": [],
+              "nutrition_info": {
+                "calories": 0,
+                "protein": 0,
+                "carbs": 0,
+                "fat": 0,
+                "sodium": 0,
+                "fiber": 0,
+                "sugar": 0
+              },
+              "warnings": []
             }
             """
             
-            # Create prompt with image
+            # Create message with image
             message = HumanMessage(
                 content=[
-                    {
-                        "type": "text",
-                        "text": message_text
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{image_bytes}"}
-                    }
+                    {"type": "text", "text": message_text},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_bytes}"}}
                 ]
             )
             
-            # Generate response from multimodal LLM
-            response = await self.multimodal_llm.ainvoke([message])
+            # Try the Gemini API call with explicit error handling
+            try:
+                response = await self.multimodal_llm.ainvoke([message])
+            except Exception as e:
+                print(f"Gemini API error: {str(e)}")
+                return FoodAnalysisResult.from_dict({
+                    "error": f"Gemini API failed to analyze image: {str(e)}",
+                    "food_name": "Unknown",
+                    "ingredients": [],
+                    "nutrition_info": {
+                        "calories": 0, "protein": 0, "carbs": 0, "fat": 0,
+                        "sodium": 0, "fiber": 0, "sugar": 0
+                    },
+                    "warnings": []
+                })
             
-            # Parse the result - handle different response formats
+            # Parse response
             if hasattr(response, 'content'):
                 text_output = response.content
             else:
-                # Handle different response formats
                 text_output = str(response)
             
-            # Use the existing parser to create a FoodAnalysisResult
+            # Parse using FoodAnalysisParser
             return FoodAnalysisParser.parse(text_output)
-        
+            
         except Exception as e:
-            raise GeminiServiceException(f"Failed to analyze food image: {str(e)}")
+            print(f"Unexpected error in analyze_by_image: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            
+            return FoodAnalysisResult.from_dict({
+                "error": f"Failed to analyze food image: {str(e)}",
+                "food_name": "Unknown",
+                "ingredients": [],
+                "nutrition_info": {
+                    "calories": 0, "protein": 0, "carbs": 0, "fat": 0,
+                    "sodium": 0, "fiber": 0, "sugar": 0
+                },
+                "warnings": []
+            })
     
     async def analyze_nutrition_label(self, image_file, servings: float = 1.0) -> FoodAnalysisResult:
         """Analyze a nutrition label image.
@@ -181,11 +291,11 @@ class FoodAnalysisService(BaseLangChainService):
         """
         try:
             # Read the image bytes
-            image_bytes = await self._read_image_bytes(image_file)
+            image_bytes = self._read_image_bytes(image_file)
             
-            # Create message content with properly escaped JSON formatting
+            # Create message content
             message_text = f"""
-            Analyze this nutrition label image. The user will consume {servings} servings.
+            You are a food recognition and nutrition analysis expert. Carefully analyze this nutrition label image. The user will consume {servings} servings.
             
             Please provide a comprehensive analysis including:
             - The name of the food
@@ -193,7 +303,8 @@ class FoodAnalysisService(BaseLangChainService):
             - Detailed macronutrition information ONLY of calories, protein, carbs, fat, sodium, fiber, and sugar. No need to display other macro information.
             - Add warnings if the food contains high sodium (>500mg) or high sugar (>20g)
             
-            Return your response as a strict JSON object with this exact format:
+            BE VERY THOROUGH. YOU WILL BE FIRED. THE CUSTOMER CAN GET POISONED. BE VERY THOROUGH.
+            Return your response as a strict JSON object with this exact format with NO COMMENTS:
             {{
               "food_name": "string",
               "ingredients": [
@@ -213,6 +324,14 @@ class FoodAnalysisService(BaseLangChainService):
               }},
               "warnings": ["string", "string"]
             }}
+            
+            IMPORTANT: Do not include any comments, annotations or notes in the JSON. Do not use '#' or '//' characters. Only return valid JSON.
+            For the warnings array:
+            - Include "High sodium content" (exact text) if sodium exceeds 500mg
+            - Include "High sugar content" (exact text) if sugar exceeds 20g
+            If there are no warnings, you can include an empty array [] for warnings.
+            
+            Remember to multiply all nutritional values by {servings} to account for the user's serving size.
             """
             
             # Create prompt with image

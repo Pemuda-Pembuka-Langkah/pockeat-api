@@ -51,22 +51,52 @@ async def analyze_food_by_text():
 
 @api_bp.route('/food/analyze/image', methods=['POST'])
 async def analyze_food_by_image():
-    """Analyze food from image.
-    
-    Returns:
-        JSON: Food analysis result.
-    """
-    if gemini_service is None:
-        raise InternalServerError("Gemini service is unavailable")
-    
+    """Analyze food from image."""
     if 'image' not in request.files:
-        raise BadRequest("Missing required field: image")
+        # Return error with proper JSON structure instead of raising exception
+        error_data = {
+            "error": "Missing required field: image",
+            "food_name": "Unknown",
+            "ingredients": [],
+            "nutrition_info": {
+                "calories": 0,
+                "protein": 0,
+                "carbs": 0,
+                "fat": 0,
+                "sodium": 0,
+                "fiber": 0,
+                "sugar": 0
+            },
+            "warnings": []
+        }
+        return jsonify(error_data), 400
     
     try:
         result = await gemini_service.analyze_food_by_image(request.files['image'])
         return jsonify(result.to_dict()), 200
-    except GeminiServiceException as e:
-        raise BadRequest(str(e))
+    except Exception as e:
+        # Log the full exception details for debugging
+        import traceback
+        print(f"Food image analysis error: {str(e)}")
+        print(traceback.format_exc())
+        
+        # Return error with proper JSON structure
+        error_data = {
+            "error": f"Failed to analyze food image: {str(e)}",
+            "food_name": "Unknown",
+            "ingredients": [],
+            "nutrition_info": {
+                "calories": 0,
+                "protein": 0,
+                "carbs": 0,
+                "fat": 0,
+                "sodium": 0,
+                "fiber": 0,
+                "sugar": 0
+            },
+            "warnings": []
+        }
+        return jsonify(error_data), 400
 
 
 @api_bp.route('/food/analyze/nutrition-label', methods=['POST'])
@@ -259,6 +289,7 @@ def handle_bad_request(e):
     Returns:
         JSON: Error response.
     """
+    print(f"Bad Request Error: {str(e)}")
     return jsonify({'error': str(e)}), 400
 
 
@@ -272,4 +303,5 @@ def handle_internal_server_error(e):
     Returns:
         JSON: Error response.
     """
+    print(f"Internal Server Error: {str(e)}")
     return jsonify({'error': str(e)}), 500 

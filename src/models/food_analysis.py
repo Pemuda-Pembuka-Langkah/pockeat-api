@@ -2,9 +2,9 @@
 Models for food analysis.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import Dict, List, Any, Optional
 from uuid import uuid4
 
 
@@ -13,151 +13,33 @@ class Ingredient:
     """Ingredient model."""
     
     name: str
-    servings: float
-    
-    @classmethod
-    def from_dict(cls, data: dict) -> 'Ingredient':
-        """Create an Ingredient from a dictionary.
-        
-        Args:
-            data: The dictionary.
-            
-        Returns:
-            The Ingredient.
-        """
-        return cls(
-            name=data.get('name', ''),
-            servings=cls._parse_double(data.get('servings', 0.0))
-        )
-    
-    def to_dict(self) -> dict:
-        """Convert the Ingredient to a dictionary.
-        
-        Returns:
-            The dictionary.
-        """
-        return {
-            'name': self.name,
-            'servings': self.servings
-        }
-    
-    @staticmethod
-    def _parse_double(value) -> float:
-        """Parse a value to a float.
-        
-        Args:
-            value: The value to parse.
-            
-        Returns:
-            The parsed float.
-        """
-        if value is None:
-            return 0.0
-        if isinstance(value, int):
-            return float(value)
-        if isinstance(value, float):
-            return value
-        if isinstance(value, str):
-            try:
-                return float(value)
-            except (ValueError, TypeError):
-                return 0.0
-        return 0.0
+    servings: float  # in grams
 
 
 @dataclass
 class NutritionInfo:
     """Nutrition information model."""
     
-    calories: float
-    protein: float
-    carbs: float
-    fat: float
-    sodium: float
-    fiber: float
-    sugar: float
-    
-    @classmethod
-    def from_dict(cls, data: dict) -> 'NutritionInfo':
-        """Create a NutritionInfo from a dictionary.
-        
-        Args:
-            data: The dictionary.
-            
-        Returns:
-            The NutritionInfo.
-        """
-        return cls(
-            calories=cls._parse_double(data.get('calories', 0.0)),
-            protein=cls._parse_double(data.get('protein', 0.0)),
-            carbs=cls._parse_double(data.get('carbs', 0.0)),
-            fat=cls._parse_double(data.get('fat', 0.0)),
-            sodium=cls._parse_double(data.get('sodium', 0.0)),
-            fiber=cls._parse_double(data.get('fiber', 0.0)),
-            sugar=cls._parse_double(data.get('sugar', 0.0))
-        )
-    
-    def to_dict(self) -> dict:
-        """Convert the NutritionInfo to a dictionary.
-        
-        Returns:
-            The dictionary.
-        """
-        return {
-            'calories': self.calories,
-            'protein': self.protein,
-            'carbs': self.carbs,
-            'fat': self.fat,
-            'sodium': self.sodium,
-            'fiber': self.fiber,
-            'sugar': self.sugar
-        }
-    
-    @staticmethod
-    def _parse_double(value) -> float:
-        """Parse a value to a float.
-        
-        Args:
-            value: The value to parse.
-            
-        Returns:
-            The parsed float.
-        """
-        if value is None:
-            return 0.0
-        if isinstance(value, int):
-            return float(value)
-        if isinstance(value, float):
-            return value
-        if isinstance(value, str):
-            try:
-                return float(value)
-            except (ValueError, TypeError):
-                return 0.0
-        return 0.0
+    calories: float = 0
+    protein: float = 0
+    carbs: float = 0
+    fat: float = 0
+    sodium: float = 0
+    fiber: float = 0
+    sugar: float = 0
 
 
 @dataclass
 class FoodAnalysisResult:
     """Food analysis result model."""
     
-    # Constants for warning messages to ensure consistency
-    HIGH_SODIUM_WARNING = "High sodium content"
-    HIGH_SUGAR_WARNING = "High sugar content"
-    LOW_CONFIDENCE_WARNING = "Analysis confidence is low - nutrition values may be less accurate"
-    
-    # Thresholds for warnings
-    HIGH_SODIUM_THRESHOLD = 500.0  # mg
-    HIGH_SUGAR_THRESHOLD = 20.0  # g
-    
     id: str
     food_name: str
     ingredients: List[Ingredient]
     nutrition_info: NutritionInfo
     warnings: List[str]
-    food_image_url: Optional[str] = None
+    error: Optional[str] = None  # Added error field
     timestamp: datetime = None
-    is_low_confidence: bool = False
     
     def __post_init__(self):
         """Post initialization."""
@@ -168,40 +50,31 @@ class FoodAnalysisResult:
         # Set timestamp if not provided
         if not self.timestamp:
             self.timestamp = datetime.now()
+        
+        # Add standard warnings based on nutrition values if not already present
+        if self.nutrition_info and not self.error:
+            warnings_set = set(self.warnings)
+            
+            if self.nutrition_info.sodium > 500 and "High sodium content" not in warnings_set:
+                warnings_set.add("High sodium content")
+            
+            if self.nutrition_info.sugar > 20 and "High sugar content" not in warnings_set:
+                warnings_set.add("High sugar content")
+            
+            self.warnings = list(warnings_set)
     
     @classmethod
-    def from_dict(cls, data: dict, id: Optional[str] = None) -> 'FoodAnalysisResult':
+    def from_dict(cls, data: Dict[str, Any], id: Optional[str] = None) -> 'FoodAnalysisResult':
         """Create a FoodAnalysisResult from a dictionary.
         
         Args:
             data: The dictionary.
-            id: The ID to use.
+            id: The ID to use (optional).
             
         Returns:
             The FoodAnalysisResult.
         """
-        # Parse nutrition info
-        nutrition_info = NutritionInfo.from_dict(data.get('nutrition_info', {}))
-        
-        # Parse ingredients
-        ingredients = []
-        ingredients_data = data.get('ingredients', [])
-        if isinstance(ingredients_data, list):
-            for item in ingredients_data:
-                if isinstance(item, dict):
-                    ingredients.append(Ingredient.from_dict(item))
-        
-        # Generate warnings if not provided based on thresholds
-        warnings = []
-        if 'warnings' in data and isinstance(data['warnings'], list):
-            warnings = data['warnings']
-        else:
-            if nutrition_info.sodium > cls.HIGH_SODIUM_THRESHOLD:
-                warnings.append(cls.HIGH_SODIUM_WARNING)
-            if nutrition_info.sugar > cls.HIGH_SUGAR_THRESHOLD:
-                warnings.append(cls.HIGH_SUGAR_WARNING)
-        
-        # Parse timestamp
+        # Parse timestamp if present
         timestamp = datetime.now()
         if 'timestamp' in data:
             try:
@@ -210,37 +83,76 @@ class FoodAnalysisResult:
             except (ValueError, TypeError):
                 pass
         
-        # Check for low confidence flag
-        is_low_confidence = data.get('is_low_confidence', False)
+        # Extract error if present
+        error = data.get('error')
         
-        # Create and return the FoodAnalysisResult
+        # Parse ingredients
+        ingredients = []
+        if 'ingredients' in data and isinstance(data['ingredients'], list):
+            for ing_data in data['ingredients']:
+                if isinstance(ing_data, dict):
+                    name = ing_data.get('name', 'Unknown ingredient')
+                    servings = float(ing_data.get('servings', 0))
+                    ingredients.append(Ingredient(name=name, servings=servings))
+        
+        # Parse nutrition info
+        nutrition_info = NutritionInfo()
+        if 'nutrition_info' in data and isinstance(data['nutrition_info'], dict):
+            nutrition_data = data['nutrition_info']
+            nutrition_info = NutritionInfo(
+                calories=float(nutrition_data.get('calories', 0)),
+                protein=float(nutrition_data.get('protein', 0)),
+                carbs=float(nutrition_data.get('carbs', 0)),
+                fat=float(nutrition_data.get('fat', 0)),
+                sodium=float(nutrition_data.get('sodium', 0)),
+                fiber=float(nutrition_data.get('fiber', 0)),
+                sugar=float(nutrition_data.get('sugar', 0))
+            )
+        
+        # Extract warnings
+        warnings = []
+        if 'warnings' in data and isinstance(data['warnings'], list):
+            warnings = [str(w) for w in data['warnings']]
+        
+        # Create and return the result
         return cls(
             id=id or data.get('id', str(uuid4())),
-            food_name=data.get('food_name', ''),
+            food_name=data.get('food_name', 'Unknown'),
             ingredients=ingredients,
             nutrition_info=nutrition_info,
             warnings=warnings,
-            food_image_url=data.get('food_image_url'),
-            timestamp=timestamp,
-            is_low_confidence=is_low_confidence
+            error=error,
+            timestamp=timestamp
         )
     
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert the FoodAnalysisResult to a dictionary.
         
         Returns:
             The dictionary.
         """
-        return {
+        result = {
             'id': self.id,
             'food_name': self.food_name,
-            'ingredients': [ingredient.to_dict() for ingredient in self.ingredients],
-            'nutrition_info': self.nutrition_info.to_dict(),
+            'ingredients': [{'name': i.name, 'servings': i.servings} for i in self.ingredients],
+            'nutrition_info': {
+                'calories': self.nutrition_info.calories,
+                'protein': self.nutrition_info.protein,
+                'carbs': self.nutrition_info.carbs,
+                'fat': self.nutrition_info.fat,
+                'sodium': self.nutrition_info.sodium,
+                'fiber': self.nutrition_info.fiber,
+                'sugar': self.nutrition_info.sugar
+            },
             'warnings': self.warnings,
-            'food_image_url': self.food_image_url,
-            'timestamp': int(self.timestamp.timestamp() * 1000),
-            'is_low_confidence': self.is_low_confidence
+            'timestamp': int(self.timestamp.timestamp() * 1000)
         }
+        
+        # Include error field only if it has a value
+        if self.error:
+            result['error'] = self.error
+            
+        return result
     
     def copy_with(self, **kwargs) -> 'FoodAnalysisResult':
         """Create a copy of the FoodAnalysisResult with updated fields.

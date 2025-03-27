@@ -24,6 +24,8 @@ class ExerciseAnalysisResult:
     intensity_level: str
     met_value: float
     description: str
+    error: Optional[str] = None  # Added error field
+    correction_applied: Optional[str] = None
     timestamp: datetime = None
     
     def __post_init__(self):
@@ -36,8 +38,9 @@ class ExerciseAnalysisResult:
         if not self.timestamp:
             self.timestamp = datetime.now()
         
-        # Normalize intensity level
-        self.intensity_level = self._normalize_intensity_level(self.intensity_level)
+        # Normalize intensity level if not error mode
+        if not self.error:
+            self.intensity_level = self._normalize_intensity_level(self.intensity_level)
     
     @staticmethod
     def _normalize_intensity_level(intensity: str) -> str:
@@ -49,6 +52,9 @@ class ExerciseAnalysisResult:
         Returns:
             The normalized intensity level.
         """
+        if not intensity:
+            return ExerciseAnalysisResult.INTENSITY_MODERATE
+            
         intensity = intensity.lower()
         
         if "low" in intensity or "light" in intensity or "mild" in intensity:
@@ -78,6 +84,9 @@ class ExerciseAnalysisResult:
             except (ValueError, TypeError):
                 pass
         
+        # Extract error if present
+        error = data.get('error')
+        
         # Handle potential different field names for calories
         calories = data.get('calories_burned', data.get('estimated_calories', 0.0))
         if isinstance(calories, str):
@@ -94,6 +103,9 @@ class ExerciseAnalysisResult:
             duration_match = re.search(r'(\d+)', str(duration))
             duration = float(duration_match.group(1)) if duration_match else 0.0
         
+        # Extract correction applied if present
+        correction_applied = data.get('correction_applied')
+        
         # Create and return the ExerciseAnalysisResult
         return cls(
             id=id or data.get('id', str(uuid4())),
@@ -103,6 +115,8 @@ class ExerciseAnalysisResult:
             intensity_level=data.get('intensity_level', 'moderate'),
             met_value=float(data.get('met_value', 0.0)),
             description=data.get('description', data.get('original_input', '')),
+            error=error,
+            correction_applied=correction_applied,
             timestamp=timestamp
         )
     
@@ -112,7 +126,7 @@ class ExerciseAnalysisResult:
         Returns:
             The dictionary.
         """
-        return {
+        result = {
             'id': self.id,
             'exercise_type': self.exercise_type,
             'calories_burned': self.calories_burned,
@@ -122,6 +136,16 @@ class ExerciseAnalysisResult:
             'description': self.description,
             'timestamp': int(self.timestamp.timestamp() * 1000)
         }
+        
+        # Include error field only if it has a value
+        if self.error:
+            result['error'] = self.error
+            
+        # Include correction_applied field only if it has a value
+        if self.correction_applied:
+            result['correction_applied'] = self.correction_applied
+            
+        return result
     
     def copy_with(self, **kwargs) -> 'ExerciseAnalysisResult':
         """Create a copy of the ExerciseAnalysisResult with updated fields.
