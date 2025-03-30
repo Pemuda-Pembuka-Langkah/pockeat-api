@@ -1,26 +1,27 @@
 # Web framework
-fastapi>=0.104.0
-uvicorn[standard]>=0.23.2
+fastapi
+uvicorn[standard]
 python-multipart
 
 # Environment variables
 python-dotenv
 
 # Google Gemini API with LangChain
-langchain>=0.0.267
-langchain-core>=0.1.1
-langchain-google-genai>=0.0.5
-google-generativeai>=0.3.0
+langchain
+langchain-core
+langchain-google-genai
+google-generativeai
+firebase-admin
 
 # Utilities
-requests>=2.31.0
-pydantic>=2.4.2
-typing-inspect>=0.9.0
-typing-extensions>=4.8.0
-psutil>=5.9.5
+requests
+pydantic
+typing-inspect
+typing-extensions
+psutil
 
 # Development tools
-pytest>=7.4.2
-pytest-cov>=4.1.0
-black>=23.9.1
-flake8>=6.1.0 
+pytest
+pytest-cov
+black
+flake8

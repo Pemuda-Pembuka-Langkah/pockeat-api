@@ -47,7 +47,12 @@ class ExerciseAnalysisService(BaseLangChainService):
             logger.debug(f"Received response: {response_text[:100]}...")
             
             # Parse the response
-            return self._parse_exercise_analysis_response(response_text)
+            result = self._parse_exercise_analysis_response(response_text)
+            
+            # Set the original input
+            result.original_input = description
+            
+            return result
         except GeminiServiceException:
             # Re-raise GeminiServiceExceptions
             raise
@@ -57,15 +62,14 @@ class ExerciseAnalysisService(BaseLangChainService):
             
             # Return result with error
             return ExerciseAnalysisResult(
-                exercise_name="Unknown Exercise",
                 exercise_type="unknown",
-                calories_burned=0,
-                duration_minutes=0,
+                duration="Not specified",
                 intensity="unknown",
-                muscles_worked=[],
-                equipment_needed=[],
-                benefits=[],
-                warnings=[],
+                calories_burned=0,
+                met_value=0.0,
+                summary=f"Could not analyze exercise: {str(e)}",
+                original_input=description,
+                missing_info=["exercise_type", "duration", "intensity"],
                 error=error_message
             )
     
@@ -82,7 +86,7 @@ class ExerciseAnalysisService(BaseLangChainService):
         Raises:
             GeminiServiceException: If the correction fails.
         """
-        logger.info(f"Correcting exercise analysis for {previous_result.exercise_name} with comment: {user_comment}")
+        logger.info(f"Correcting exercise analysis for {previous_result.exercise_type} with comment: {user_comment}")
         
         # Convert the previous result to a dict for the prompt
         previous_result_dict = previous_result.dict(exclude={"timestamp", "id"})
@@ -98,8 +102,9 @@ class ExerciseAnalysisService(BaseLangChainService):
             # Parse the response
             corrected_result = self._parse_exercise_analysis_response(response_text)
             
-            # Preserve the original ID
+            # Preserve the original information
             corrected_result.id = previous_result.id
+            corrected_result.original_input = previous_result.original_input
             
             return corrected_result
         except GeminiServiceException:
@@ -123,30 +128,43 @@ class ExerciseAnalysisService(BaseLangChainService):
         Returns:
             The prompt.
         """
-        weight_info = f"The user weighs {user_weight_kg} kg." if user_weight_kg else "Assume an average adult weight for calorie calculations."
+        weight_info = f"The user weighs {user_weight_kg} kg." if user_weight_kg else ""
         
-        return f"""Analyze the following exercise description and provide detailed information. 
-Return your response as a JSON object with the following structure:
+        return f"""
+        Calculate calories burned from this exercise description: "{description}"
+        {weight_info}
 
-{{
-  "exercise_name": "Name of the exercise",
-  "exercise_type": "cardio/strength/flexibility/balance",
-  "calories_burned": 0,
-  "duration_minutes": 0,
-  "intensity": "low/medium/high",
-  "muscles_worked": ["Muscle 1", "Muscle 2"],
-  "equipment_needed": ["Equipment 1", "Equipment 2"],
-  "benefits": ["Benefit 1", "Benefit 2"],
-  "warnings": ["Warning 1", "Warning 2"]
-}}
+        
+        Please analyze this exercise and provide:
+        - Type of exercise
+        - Calories burned
+        - Duration in minutes
+        - Intensity level into only three of this (Low, Medium, High, Unknown) #don't forget its Capitalized
+        - MET value
+        
 
-Exercise description: {description}
+        Do not include any other text in your response, even comments.
+        Return your response as a strict JSON object with this exact format:
+        (
+          "exercise_type": "string",
+          "calories_burned": number,
+          "duration_minutes": number,
+          "intensity_level": "string",
+          "met_value": number
+        )
+        
+        If you cannot determine the exercise details, use this format:
+        (
+          "error": "Could not determine exercise details",
+          "exercise_type": "Unknown",
+          "calories_burned": 0,
+          "duration_minutes": 0,
+          "intensity_level": "Unknown",
+          "met_value": 0
+        )
 
-{weight_info}
-
-Please estimate calorie burn based on the exercise intensity and duration. 
-Include any health warnings in the warnings array (e.g., "High impact on joints", "Not recommended for people with back problems").
-"""
+        Change () to curly braces
+        """
     
     def _generate_correction_prompt(self, previous_result: Dict[str, Any], user_comment: str) -> str:
         """Generate a prompt for correction.
@@ -158,18 +176,37 @@ Include any health warnings in the warnings array (e.g., "High impact on joints"
         Returns:
             The prompt.
         """
-        # Convert the previous result to a formatted JSON string
-        previous_result_json = json.dumps(previous_result, indent=2)
+        exercise_type = previous_result.get("exercise_type", "Unknown")
+        duration = previous_result.get("duration", "Not specified")
+        intensity = previous_result.get("intensity", "Not specified")
+        estimated_calories = previous_result.get("calories_burned", 0)
+        met_value = previous_result.get("met_value", 0.0)
         
-        return f"""I previously analyzed an exercise and provided the following information:
+        return f"""
+        Original exercise analysis:
+        - Exercise type: {exercise_type}
+        - Duration: {duration}
+        - Intensity: {intensity}
+        - Calories burned: {estimated_calories}
+        - MET value: {met_value}
+        
+        User correction comment: "{user_comment}"
+        
+        Please correct the exercise analysis based on the user's comment. 
+        Only modify values that need to be changed according to the user's feedback.
+        
+        Return your response as a strict JSON object with this exact format:
+        (
+          "exercise_type": "string",
+          "calories_burned": number,
+          "duration_minutes": number,
+          "intensity_level": "string",
+          "met_value": number,
+          "correction_applied": "string explaining what was corrected"
+        )
 
-{previous_result_json}
-
-The user has provided this feedback to correct or improve the analysis:
-"{user_comment}"
-
-Please correct the analysis based on this feedback. Return your corrected response as a complete JSON object with the same structure as the original analysis.
-"""
+        Change () to curly braces
+        """
     
     def _parse_exercise_analysis_response(self, response_text: str) -> ExerciseAnalysisResult:
         """Parse the response from the Gemini API for exercise analysis.
@@ -189,29 +226,37 @@ Please correct the analysis based on this feedback. Return your corrected respon
             if not json_str:
                 logger.warning("No JSON found in response, returning raw response")
                 return ExerciseAnalysisResult(
-                    exercise_name="Unknown Exercise",
                     exercise_type="unknown",
-                    calories_burned=0,
-                    duration_minutes=0,
+                    duration="Not specified",
                     intensity="unknown",
-                    muscles_worked=[],
-                    equipment_needed=[],
-                    benefits=[],
-                    warnings=[],
+                    calories_burned=0,
+                    met_value=0.0,
+                    summary="Could not analyze exercise: Failed to parse response",
+                    original_input="",
+                    missing_info=["exercise_type", "duration", "intensity"],
                     error=f"Failed to parse response: {response_text[:100]}..."
                 )
             
             # Parse the JSON
             data = parse_json_safely(json_str)
             
-            # Extract and validate required fields
-            exercise_name = data.get("exercise_name", "Unknown Exercise")
-            exercise_type = data.get("exercise_type", "unknown")
+            # Check for error
+            if "error" in data:
+                logger.warning(f"Error in exercise analysis response: {data['error']}")
+                return ExerciseAnalysisResult(
+                    exercise_type="unknown" if not data.get("exercise_type") else data["exercise_type"],
+                    duration="Not specified",
+                    intensity="unknown",
+                    calories_burned=0,
+                    met_value=0.0,
+                    summary=f"Could not analyze exercise: {data['error']}",
+                    original_input="",
+                    missing_info=["exercise_type", "duration", "intensity"],
+                    error=data["error"]
+                )
             
-            # Ensure exercise_type is one of the allowed values
-            valid_types = ["cardio", "strength", "flexibility", "balance", "unknown"]
-            if exercise_type.lower() not in valid_types:
-                exercise_type = "unknown"
+            # Extract required fields
+            exercise_type = data.get("exercise_type", "unknown")
             
             # Extract numeric fields with validation
             try:
@@ -219,59 +264,57 @@ Please correct the analysis based on this feedback. Return your corrected respon
             except (ValueError, TypeError):
                 calories_burned = 0
             
-            try:
-                duration_minutes = float(data.get("duration_minutes", 0))
-            except (ValueError, TypeError):
-                duration_minutes = 0
+            # Extract duration as a string
+            duration_minutes = data.get("duration_minutes", 0)
+            duration = f"{duration_minutes} minutes" if duration_minutes else "Not specified"
             
-            # Extract intensity
-            intensity = data.get("intensity", "unknown").lower()
-            valid_intensities = ["low", "medium", "high", "unknown"]
+            # Extract intensity (could be intensity or intensity_level)
+            intensity = data.get("intensity_level", data.get("intensity", "unknown")).lower()
+            valid_intensities = ["low", "medium", "high", "Unknown"]
             if intensity not in valid_intensities:
                 intensity = "unknown"
             
-            # Extract list fields
-            muscles_worked = []
-            if "muscles_worked" in data and isinstance(data["muscles_worked"], list):
-                muscles_worked = [str(m) for m in data["muscles_worked"]]
+            # Extract MET value
+            try:
+                met_value = float(data.get("met_value", 0))
+            except (ValueError, TypeError):
+                met_value = 0.0
             
-            equipment_needed = []
-            if "equipment_needed" in data and isinstance(data["equipment_needed"], list):
-                equipment_needed = [str(e) for e in data["equipment_needed"]]
+            # Create a summary
+            summary = f"You performed {exercise_type} for {duration_minutes} minutes at {intensity} intensity, burning approximately {calories_burned} calories."
             
-            benefits = []
-            if "benefits" in data and isinstance(data["benefits"], list):
-                benefits = [str(b) for b in data["benefits"]]
-            
-            warnings = []
-            if "warnings" in data and isinstance(data["warnings"], list):
-                warnings = [str(w) for w in data["warnings"]]
+            # Identify missing information
+            missing_info = []
+            if not exercise_type or exercise_type == "unknown":
+                missing_info.append("exercise_type")
+            if not duration_minutes:
+                missing_info.append("duration")
+            if intensity == "unknown":
+                missing_info.append("intensity")
             
             # Create and return the result
             return ExerciseAnalysisResult(
-                exercise_name=exercise_name,
                 exercise_type=exercise_type,
-                calories_burned=calories_burned,
-                duration_minutes=duration_minutes,
+                duration=duration,
                 intensity=intensity,
-                muscles_worked=muscles_worked,
-                equipment_needed=equipment_needed,
-                benefits=benefits,
-                warnings=warnings
+                calories_burned=calories_burned,
+                met_value=met_value,
+                summary=summary,
+                original_input=data.get("description", ""),
+                missing_info=missing_info if missing_info else None
             )
         
         except Exception as e:
             logger.error(f"Error parsing exercise analysis response: {str(e)}")
             # Instead of raising an exception, return a result with the error
             return ExerciseAnalysisResult(
-                exercise_name="Unknown Exercise",
                 exercise_type="unknown",
-                calories_burned=0,
-                duration_minutes=0,
+                duration="Not specified",
                 intensity="unknown",
-                muscles_worked=[],
-                equipment_needed=[],
-                benefits=[],
-                warnings=[],
+                calories_burned=0,
+                met_value=0.0,
+                summary=f"Could not analyze exercise: {str(e)}",
+                original_input="",
+                missing_info=["exercise_type", "duration", "intensity"],
                 error=f"Failed to parse response: {str(e)}"
             ) 
