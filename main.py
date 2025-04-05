@@ -2,7 +2,7 @@
 Main FastAPI application for PockEat API.
 """
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import logging
@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 import traceback
 import psutil
 import time
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # Load environment variables
 load_dotenv()
@@ -22,6 +23,63 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
+
+# Check if global auth is enabled (default to true if not specified)
+GLOBAL_AUTH_ENABLED = os.getenv("GLOBAL_AUTH_ENABLED", "true").lower() == "true"
+
+# Path patterns that don't require authentication
+PUBLIC_PATHS = [
+    "/",                # Root endpoint
+    "/health",          # Health check
+    "/docs",            # Swagger UI
+    "/redoc",           # ReDoc
+    "/openapi.json",    # OpenAPI schema
+    "/api/health",      # API health check
+    "/debug-env",       # Debug environment
+    "/api/debug-env",   # API debug environment
+]
+
+# Create authentication middleware
+class AuthMiddleware(BaseHTTPMiddleware):
+    """Middleware for authenticating requests."""
+    
+    async def dispatch(self, request: Request, call_next):
+        """
+        Authenticate requests before passing them to the handlers.
+        
+        Args:
+            request: The incoming request.
+            call_next: The next handler in the middleware chain.
+            
+        Returns:
+            The response from the handler.
+        """
+        # Skip authentication if globally disabled
+        if not GLOBAL_AUTH_ENABLED:
+            return await call_next(request)
+            
+        # Check if path is in public paths
+        path = request.url.path
+        
+        # Allow public paths and OPTIONS requests (for CORS)
+        if any(path.startswith(public_path) for public_path in PUBLIC_PATHS) or request.method == "OPTIONS":
+            return await call_next(request)
+            
+        # Import here to avoid circular imports
+        from api.dependencies.auth import optional_verify_token
+        
+        # Verify token
+        user = await optional_verify_token(request)
+        if not user:
+            return Response(
+                content='{"detail": "Authentication required"}',
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                media_type="application/json",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+        
+        # Token is valid, continue to the handler
+        return await call_next(request)
 
 # Create FastAPI app
 app = FastAPI(
@@ -38,6 +96,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add authentication middleware
+app.add_middleware(AuthMiddleware)
+
+# Log auth status at startup
+if GLOBAL_AUTH_ENABLED:
+    logger.info("Global authentication middleware is ENABLED")
+else:
+    logger.warning("Global authentication middleware is DISABLED")
 
 # Import API routers - must be after app creation
 from api.routes import router as api_router

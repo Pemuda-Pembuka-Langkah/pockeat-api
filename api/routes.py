@@ -6,7 +6,7 @@ import logging
 import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, Request
 from fastapi.responses import JSONResponse
 
 from api.services.gemini_service import GeminiService
@@ -21,6 +21,7 @@ from api.models.exercise_analysis import (
     ExerciseAnalysisRequest, 
     ExerciseCorrectionRequest
 )
+from api.dependencies.auth import get_current_user, verify_token, optional_verify_token
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -257,4 +258,51 @@ async def debug_env():
     return {
         "has_key": bool(os.getenv("GOOGLE_API_KEY")),
         "env_vars": list(os.environ.keys())
-    } 
+    }
+
+
+@router.get(
+    "/user/profile", 
+    summary="Get user profile", 
+    tags=["User"]
+)
+async def get_user_profile(user: dict = Depends(get_current_user)):
+    """Get the user profile for the authenticated user."""
+    return {
+        "uid": user.get("uid"),
+        "email": user.get("email"),
+        "name": user.get("name"),
+        "message": "Successfully authenticated with Firebase"
+    }
+
+@router.get(
+    "/protected-example",
+    summary="Protected route example",
+    tags=["Examples"]
+)
+async def protected_example(token: dict = Depends(verify_token)):
+    """Example of a protected route that requires authentication."""
+    return {
+        "message": "This is a protected endpoint",
+        "user_id": token.get("uid"),
+        "email": token.get("email")
+    }
+
+@router.get(
+    "/optional-auth-example",
+    summary="Optional authentication example",
+    tags=["Examples"]
+)
+async def optional_auth_example(request: Request):
+    """Example of a route with optional authentication."""
+    user = await optional_verify_token(request)
+    
+    if user:
+        return {
+            "message": "Authenticated user",
+            "user_id": user.get("uid")
+        }
+    else:
+        return {
+            "message": "Unauthenticated user"
+        } 

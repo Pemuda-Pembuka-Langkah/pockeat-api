@@ -46,12 +46,10 @@ class FoodAnalysisService(BaseLangChainService):
             template=prompt_text
         )
 
-        # Use RunnableSequence instead of LLMChain
-        runnable = prompt | self.text_llm | StrOutputParser()
-        
         try:
-            # Invoke the model
-            response_text = await runnable.invoke({"description": description})
+            # Use direct text model invocation instead of RunnableSequence
+            formatted_prompt = prompt.format(description=description)
+            response_text = await self._invoke_text_model(formatted_prompt)
             logger.debug(f"Received response: {response_text[:100]}...")
             
             # Parse the response
