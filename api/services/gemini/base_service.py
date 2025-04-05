@@ -120,6 +120,7 @@ class BaseLangChainService:
             logger.debug(f"Invoking text model with prompt: {prompt[:100]}...")
             human_message = HumanMessage(content=prompt)
             response = await self.text_llm.ainvoke([human_message])
+            print(f"AI API Response (Text Model): {response.content[:500]}...")
             return response.content
         except Exception as e:
             logger.error(f"Error invoking text model: {str(e)}")
@@ -150,6 +151,7 @@ class BaseLangChainService:
             )
             
             response = await self.multimodal_llm.ainvoke([human_message])
+            print(f"AI API Response (Multimodal Model): {response.content[:500]}...")
             return response.content
         except Exception as e:
             logger.error(f"Error invoking multimodal model: {str(e)}")

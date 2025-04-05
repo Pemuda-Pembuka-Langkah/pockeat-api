@@ -70,8 +70,10 @@ async def analyze_food_by_text(
     gemini: GeminiService = Depends(get_gemini_service)
 ):
     """Analyze food from text description."""
+    logger.info(f"Received food analysis request: {request.description}")
     try:
         result = await gemini.analyze_food_by_text(request.description)
+        print(f"Food analysis result: {result}")
         return result
     except GeminiServiceException as e:
         raise HTTPException(
@@ -116,8 +118,7 @@ async def analyze_food_by_image(
                     "sodium": 0,
                     "fiber": 0,
                     "sugar": 0
-                },
-                "warnings": []
+                }
             }
         )
     except Exception as e:
@@ -136,8 +137,7 @@ async def analyze_food_by_image(
                     "sodium": 0,
                     "fiber": 0,
                     "sugar": 0
-                },
-                "warnings": []
+                }
             }
         )
 
