@@ -5,7 +5,7 @@ JSON parsing utilities for Gemini API responses.
 import json
 import re
 import logging
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List, Tuple, cast
 
 from api.services.gemini.exceptions import GeminiParsingError
 
@@ -35,7 +35,7 @@ def extract_json_from_text(text: str) -> Optional[str]:
 
     if matches:
         # If we found JSON blocks, use the first one
-        return matches[0].strip()
+        return cast(str, matches[0].strip())
 
     # If no code blocks found, look for JSON objects or arrays
     # Using a safer pattern that avoids backtracking issues
@@ -45,21 +45,21 @@ def extract_json_from_text(text: str) -> Optional[str]:
         match_obj = re.search(json_obj_pattern, text, re.DOTALL | re.X)
 
         if match_obj:
-            return match_obj.group(0)
+            return cast(str, match_obj.group(0))
 
         # Look for arrays
         json_arr_pattern = r"(\[(?:[^\[\]]|(?R))*\])"
         match_arr = re.search(json_arr_pattern, text, re.DOTALL | re.X)
 
         if match_arr:
-            return match_arr.group(0)
+            return cast(str, match_arr.group(0))
     except re.error:
         # Fallback to simpler pattern if the recursive pattern isn't supported
         json_pattern = r"({[^{}]*(?:{[^{}]*}[^{}]*)*}|\[[^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*\])"
         match = re.search(json_pattern, text, re.DOTALL)
 
         if match:
-            return match.group(0)
+            return cast(str, match.group(0))
 
     # If we can't find JSON, return None
     logger.warning("No JSON found in text response")  # pragma: no cover
@@ -83,14 +83,14 @@ def parse_json_safely(json_str: str) -> Dict[str, Any]:
 
     try:
         # First try standard parsing
-        return json.loads(json_str)
+        return cast(Dict[str, Any], json.loads(json_str))
     except json.JSONDecodeError as e:  # pragma: no cover
         logger.warning(f"Standard JSON parsing failed: {str(e)}")
 
         # Try to fix common JSON issues
         fixed_json = fix_common_json_errors(json_str)
         try:
-            return json.loads(fixed_json)
+            return cast(Dict[str, Any], json.loads(fixed_json))
         except json.JSONDecodeError as e:
             logger.error(f"JSON parsing failed after fixing: {str(e)}")
             raise GeminiParsingError(f"Failed to parse JSON: {str(e)}", json_str)

@@ -5,7 +5,7 @@ Authentication dependencies for FastAPI.
 import logging
 import os
 import json
-from typing import Optional
+from typing import Optional, Dict, Any, cast
 
 import firebase_admin
 from firebase_admin import auth, credentials
@@ -75,7 +75,7 @@ except Exception as e:
 security = HTTPBearer()
 
 
-async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[Any, Any]:
     """
     Verify the JWT token from Firebase.
 
@@ -93,7 +93,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
         # Verify the token
         decoded_token = auth.verify_id_token(token)
         logger.info(f"Token verified for user: {decoded_token.get('uid')}")
-        return decoded_token
+        return cast(Dict[Any, Any], decoded_token)
     except Exception as e:
         logger.error(f"Invalid token: {str(e)}")
         raise HTTPException(status_code=401, detail=f"Invalid authentication credentials: {str(e)}")
@@ -119,7 +119,7 @@ async def get_current_user(token: dict = Depends(verify_token)) -> dict:
 
 
 # Optional token verification that doesn't raise an exception for unauthenticated routes
-async def optional_verify_token(request: Request) -> Optional[dict]:
+async def optional_verify_token(request: Request) -> Optional[Dict[Any, Any]]:
     """
     Optionally verify the JWT token from Firebase.
 
@@ -137,7 +137,7 @@ async def optional_verify_token(request: Request) -> Optional[dict]:
     try:
         # Verify the token
         decoded_token = auth.verify_id_token(token)
-        return decoded_token
+        return cast(Dict[Any, Any], decoded_token)
     except Exception as e:
         logger.warning(f"Invalid token in optional verification: {str(e)}")
         return None

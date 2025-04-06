@@ -6,6 +6,7 @@ import base64
 import os
 import binascii
 import logging
+from typing import Union, List, Dict, Any, cast
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 
@@ -48,12 +49,12 @@ class BaseLangChainService:
 
         # Create text LLM
         self.text_llm = ChatGoogleGenerativeAI(
-            model=self.text_model_name, google_api_key=api_key, temperature=0.1
+            model=self.text_model_name, api_key=api_key, temperature=0.1
         )
 
         # Create multimodal LLM
         self.multimodal_llm = ChatGoogleGenerativeAI(
-            model=self.multimodal_model_name, google_api_key=api_key, temperature=0.1
+            model=self.multimodal_model_name, api_key=api_key, temperature=0.1
         )
 
     def _read_image_bytes(self, image_file) -> str:
@@ -123,7 +124,7 @@ class BaseLangChainService:
             human_message = HumanMessage(content=prompt)
             response = await self.text_llm.ainvoke([human_message])
             print(f"AI API Response (Text Model): {response.content[:500]}...")
-            return response.content
+            return cast(str, response.content)
         except Exception as e:
             logger.error(f"Error invoking text model: {str(e)}")
             raise
@@ -154,7 +155,7 @@ class BaseLangChainService:
 
             response = await self.multimodal_llm.ainvoke([human_message])
             print(f"AI API Response (Multimodal Model): {response.content[:500]}...")
-            return response.content
+            return cast(str, response.content)
         except Exception as e:
             logger.error(f"Error invoking multimodal model: {str(e)}")
             raise
