@@ -29,20 +29,37 @@ def extract_json_from_text(text: str) -> Optional[str]:
     logger.debug(f"Extracting JSON from text: {text[:100]}...")  # pragma: no cover
     
     # Try to extract JSON from markdown code blocks
-    json_block_pattern = r"```(?:json)?\s*([\s\S]*?)```"
-    matches = re.findall(json_block_pattern, text)
+    # Using a more efficient regex with atomic groups to prevent catastrophic backtracking
+    json_block_pattern = r"```(?:json)?(?>((?:(?!```).)*))```"
+    matches = re.findall(json_block_pattern, text, re.DOTALL)
     
     if matches:
         # If we found JSON blocks, use the first one
         return matches[0].strip()
     
     # If no code blocks found, look for JSON objects or arrays
-    # First look for full objects/arrays
-    json_pattern = r"({[\s\S]*}|\[[\s\S]*\])"
-    match = re.search(json_pattern, text)
-    
-    if match:
-        return match.group(0)
+    # Using a safer pattern that avoids backtracking issues
+    try:
+        # Look for objects
+        json_obj_pattern = r"({(?:[^{}]|(?R))*})"
+        match_obj = re.search(json_obj_pattern, text, re.DOTALL | re.X)
+        
+        if match_obj:
+            return match_obj.group(0)
+            
+        # Look for arrays
+        json_arr_pattern = r"(\[(?:[^\[\]]|(?R))*\])"
+        match_arr = re.search(json_arr_pattern, text, re.DOTALL | re.X)
+        
+        if match_arr:
+            return match_arr.group(0)
+    except re.error:
+        # Fallback to simpler pattern if the recursive pattern isn't supported
+        json_pattern = r"({[^{}]*(?:{[^{}]*}[^{}]*)*}|\[[^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*\])"
+        match = re.search(json_pattern, text, re.DOTALL)
+        
+        if match:
+            return match.group(0)
     
     # If we can't find JSON, return None
     logger.warning("No JSON found in text response")  # pragma: no cover
