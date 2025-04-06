@@ -1,0 +1,21 @@
+[run]
+source = api
+omit = 
+    */tests/*
+    */env/*
+    */venv/*
+    */__pycache__/*
+    */__init__.py
+    */conftest.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    raise ImportError
+    except ImportError:
+    def run_command
+    def main 

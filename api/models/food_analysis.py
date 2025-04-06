@@ -12,7 +12,7 @@ class Ingredient(BaseModel):
     """Ingredient model."""
     
     name: str
-    servings: float = Field(description="Serving amount in grams")
+    servings: float = Field(default=0, description="Serving amount in grams")
 
 
 class NutritionInfo(BaseModel):

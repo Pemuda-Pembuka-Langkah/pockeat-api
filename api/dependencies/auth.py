@@ -19,12 +19,19 @@ logger = logging.getLogger(__name__)
 try:
     # Check for direct environment variable with credentials JSON content
     firebase_creds_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
+    
+    # Check for credentials path
+    credentials_path = os.getenv("FIREBASE_CREDENTIALS_PATH")
 
     if firebase_creds_json:
         # Parse credentials from the environment variable
         logger.info("Initializing Firebase with credentials from environment variable")
         creds_dict = json.loads(firebase_creds_json)
         cred = credentials.Certificate(creds_dict)
+    elif credentials_path and os.path.exists(credentials_path):
+        # Use credentials from file path
+        logger.info(f"Initializing Firebase with credentials from file: {credentials_path}")
+        cred = credentials.Certificate(credentials_path)
     else:
         # Try to use individual environment variables
         logger.info("Initializing Firebase with individual credential environment variables")

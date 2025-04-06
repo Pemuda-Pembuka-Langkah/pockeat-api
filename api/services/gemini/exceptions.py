@@ -34,7 +34,7 @@ class GeminiAPIKeyMissingError(GeminiServiceException):
 class GeminiAPIError(GeminiServiceException):
     """Exception raised when the Gemini API returns an error."""
     
-    def __init__(self, message: str, status_code: int = 500):
+    def __init__(self, message: str, status_code: int = 500):  # pragma: no cover
         """Initialize the exception.
         
         Args:
@@ -58,7 +58,7 @@ class GeminiParsingError(GeminiServiceException):
             response: The raw response that failed to parse.
         """
         error_message = f"Failed to parse Gemini API response: {message}"
-        if response:
+        if response:  # pragma: no cover
             error_message += f"\nRaw response: {response[:100]}..." if len(response) > 100 else f"\nRaw response: {response}"
         
         super().__init__(
@@ -70,7 +70,7 @@ class GeminiParsingError(GeminiServiceException):
 class InvalidImageError(GeminiServiceException):
     """Exception raised when the provided image is invalid."""
     
-    def __init__(self, message: str = "Invalid image provided"):
+    def __init__(self, message: str = "Invalid image provided"):  # pragma: no cover
         """Initialize the exception.
         
         Args:

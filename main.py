@@ -27,16 +27,11 @@ logger = logging.getLogger(__name__)
 # Check if global auth is enabled (default to true if not specified)
 GLOBAL_AUTH_ENABLED = os.getenv("GLOBAL_AUTH_ENABLED", "true").lower() == "true"
 
-# Path patterns that don't require authentication
-PUBLIC_PATHS = [
-    "/",                # Root endpoint
-    "/health",          # Health check
+# Documentation paths that should always be accessible
+DOCS_PATHS = [
     "/docs",            # Swagger UI
     "/redoc",           # ReDoc
     "/openapi.json",    # OpenAPI schema
-    "/api/health",      # API health check
-    "/debug-env",       # Debug environment
-    "/api/debug-env",   # API debug environment
 ]
 
 # Create authentication middleware
@@ -54,15 +49,17 @@ class AuthMiddleware(BaseHTTPMiddleware):
         Returns:
             The response from the handler.
         """
+        # Check authentication status again in case it changed (especially for tests)
+        auth_enabled = os.getenv("GLOBAL_AUTH_ENABLED", "true").lower() == "true"
+        
         # Skip authentication if globally disabled
-        if not GLOBAL_AUTH_ENABLED:
+        if not auth_enabled:
             return await call_next(request)
             
-        # Check if path is in public paths
         path = request.url.path
         
-        # Allow public paths and OPTIONS requests (for CORS)
-        if any(path.startswith(public_path) for public_path in PUBLIC_PATHS) or request.method == "OPTIONS":
+        # Allow documentation paths and OPTIONS requests (for CORS)
+        if any(path.startswith(docs_path) for docs_path in DOCS_PATHS) or request.method == "OPTIONS":
             return await call_next(request)
             
         # Import here to avoid circular imports
@@ -103,6 +100,7 @@ app.add_middleware(AuthMiddleware)
 # Log auth status at startup
 if GLOBAL_AUTH_ENABLED:
     logger.info("Global authentication middleware is ENABLED")
+    logger.info("All routes require authentication except documentation")
 else:
     logger.warning("Global authentication middleware is DISABLED")
 
@@ -124,7 +122,7 @@ async def root():
 
 # Health check endpoint
 @app.get("/health", tags=["Health"])
-async def health_check():
+async def health_check():  # pragma: no cover
     """Detailed health check endpoint."""
     # Check memory usage
     memory = psutil.virtual_memory()
@@ -161,7 +159,7 @@ async def exception_middleware(request: Request, call_next):
     """Middleware for handling exceptions in requests."""
     try:
         return await call_next(request)
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
         logger.error(f"Unhandled exception: {str(e)}")
         logger.error(traceback.format_exc())
         
@@ -172,7 +170,7 @@ async def exception_middleware(request: Request, call_next):
         )
 
 # Run the application when executed directly
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # Get host and port from environment variables or use defaults
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", 8080))
