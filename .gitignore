@@ -27,12 +27,6 @@ example_*.py
 *example*.py
 examples/
 
-# Test files
-test_*.py
-*test*.py
-tests/
-test-*.json
-*test*.json
 
 # Flask stuff:
 instance/
@@ -100,3 +94,25 @@ debug_api.py
 test_gemini.py
 test_api.py 
 cli.py
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Application specific
+*.log
+instance/

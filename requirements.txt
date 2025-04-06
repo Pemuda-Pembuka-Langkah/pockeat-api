@@ -1,8 +1,8 @@
-# Core framework
-flask[async]
-flask-cors
-werkzeug
-gunicorn
+# Web framework
+fastapi
+uvicorn[standard]
+python-multipart
+
 # Environment variables
 python-dotenv
 
@@ -17,11 +17,15 @@ requests
 pydantic
 typing-inspect
 typing-extensions
-python-multipart
+psutil
 
+# Authentication
+firebase-admin
+
+# Development tools
 pytest
 pytest-cov
-flask-sqlalchemy
-flask-migrate
+pytest-asyncio
 black
-flake8 
+flake8
+httpx
