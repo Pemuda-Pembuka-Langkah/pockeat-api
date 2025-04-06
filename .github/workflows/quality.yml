@@ -38,6 +38,11 @@ jobs:
         set -o pipefail
         bandit -r api | tee bandit-results.txt
 
+    - name: Set up environment for testing
+      run: |
+        # Create mock environment variables for testing
+        echo "GOOGLE_API_KEY=dummy-api-key-for-testing" >> $GITHUB_ENV
+
     - name: Check directory structure
       run: |
         echo "Repository root contents:"

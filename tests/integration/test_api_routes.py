@@ -14,9 +14,24 @@ from fastapi.testclient import TestClient
 from main import app
 from api.models.food_analysis import FoodAnalysisResult, NutritionInfo, Ingredient
 from api.models.exercise_analysis import ExerciseAnalysisResult
+from api.services.gemini_service import GeminiService
+
+# Mock the GeminiService before it's imported by routes
+mock_gemini_service = MagicMock(spec=GeminiService)
 
 class TestAPIRoutes:
     """Test API routes."""
+    
+    @pytest.fixture(scope="class", autouse=True)
+    def setup_class(self):
+        """Setup for the test class to mock GeminiService."""
+        # Create a patcher for the GeminiService initialization
+        with patch("api.routes.GeminiService", return_value=mock_gemini_service) as mock_init:
+            # This makes sure the GeminiService is mocked at initialization
+            mock_init.return_value = mock_gemini_service
+            # Also patch the gemini_service in the routes module directly
+            with patch("api.routes.gemini_service", mock_gemini_service):
+                yield
     
     @pytest.fixture
     def client(self):
@@ -51,21 +66,25 @@ class TestAPIRoutes:
 
     def test_health_check(self, client):
         """Test the health check endpoint."""
-        with patch("api.services.gemini_service.GeminiService.check_health", return_value=True):
-            response = client.get("/api/health")
-            # Print response for debugging
-            print(f"Health check response: {response.json()}")
-            assert response.status_code == 200
-            assert response.json()["status"] == "healthy"
+        # Mock the check_health method for this test
+        mock_gemini_service.check_health.return_value = True
+        
+        response = client.get("/api/health")
+        # Print response for debugging
+        print(f"Health check response: {response.json()}")
+        assert response.status_code == 200
+        assert response.json()["status"] == "healthy"
 
     def test_health_check_service_unavailable(self, client):
         """Test the health check when Gemini service is unavailable."""
-        with patch("api.services.gemini_service.GeminiService.check_health", return_value=False):
-            response = client.get("/api/health")
-            # Print response for debugging
-            print(f"Health check response: {response.json()}")
-            assert response.status_code == 200
-            assert response.json()["status"] == "degraded"
+        # Mock the check_health method for this test
+        mock_gemini_service.check_health.return_value = False
+        
+        response = client.get("/api/health")
+        # Print response for debugging
+        print(f"Health check response: {response.json()}")
+        assert response.status_code == 200
+        assert response.json()["status"] == "degraded"
 
     def test_debug_environment(self, client):
         """Test the debug environment endpoint."""
@@ -81,29 +100,31 @@ class TestAPIRoutes:
             nutrition_info=NutritionInfo(calories=200)
         )
         
-        with patch("api.services.gemini_service.GeminiService.analyze_food_by_text", 
-                   return_value=mock_result):
-            response = client.post(
-                "/api/food/analyze/text",
-                json={"description": "test food"}
-            )
-            assert response.status_code == 200
-            assert response.json()["food_name"] == "Test Food"
-            assert len(response.json()["ingredients"]) == 1
-            assert response.json()["nutrition_info"]["calories"] == 200
+        # Mock the analyze_food_by_text method for this test
+        mock_gemini_service.analyze_food_by_text.return_value = mock_result
+        
+        response = client.post(
+            "/api/food/analyze/text",
+            json={"description": "test food"}
+        )
+        assert response.status_code == 200
+        assert response.json()["food_name"] == "Test Food"
+        assert len(response.json()["ingredients"]) == 1
+        assert response.json()["nutrition_info"]["calories"] == 200
 
     def test_analyze_food_by_text_service_unavailable(self, client):
         """Test analyzing food by text when service is unavailable."""
-        with patch("api.services.gemini_service.GeminiService.analyze_food_by_text", 
-                   side_effect=Exception("Service unavailable")):
-            response = client.post(
-                "/api/food/analyze/text",
-                json={"description": "test food"}
-            )
-            # Print response for debugging
-            print(f"Error response: {response.json()}")
-            assert response.status_code == 500
-            assert "detail" in response.json()
+        # Mock the analyze_food_by_text method to raise an exception
+        mock_gemini_service.analyze_food_by_text.side_effect = Exception("Service unavailable")
+        
+        response = client.post(
+            "/api/food/analyze/text",
+            json={"description": "test food"}
+        )
+        # Print response for debugging
+        print(f"Error response: {response.json()}")
+        assert response.status_code == 500
+        assert "detail" in response.json()
 
     def test_analyze_exercise(self, client):
         """Test analyzing exercise."""
