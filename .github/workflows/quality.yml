@@ -60,11 +60,18 @@ jobs:
         python -m pytest $(find . -name "test_*.py" -type f) --cov=api --cov-report=xml --cov-report=term --cov-fail-under=90
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
+        token: ${{ secrets.CODECOV_TOKEN }}
         file: ./coverage.xml
         flags: unittests
         fail_ci_if_error: false
+
+    - name: Display Codecov link
+      run: |
+        BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+        REPO_NAME="${{ github.repository }}"
+        echo "Code Coverage Report: https://codecov.io/gh/${REPO_NAME}/branch/${BRANCH_NAME}"
 
   sonarcloud:
     name: SonarCloud Analysis
