@@ -33,8 +33,29 @@ jobs:
         mypy api --ignore-missing-imports
     
     - name: Run bandit security scan
+      id: bandit
       run: |
-        bandit -r api -f json -o security-report.json
+        set -o pipefail
+        bandit -r api | tee bandit-results.txt
+
+    - name: Comment PR with Bandit results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.TOKEN_GITHUB }}
+        script: |
+          const fs = require('fs');
+          const banditResults = fs.readFileSync('bandit-results.txt', 'utf8');
+          
+          const header = '## 🔒 Bandit Security Scan Results\n\n';
+          const formattedResults = '```\n' + banditResults + '\n```';
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: header + formattedResults
+          });
 
     - name: Run pytest with coverage
       run: |
@@ -60,7 +81,7 @@ jobs:
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.TOKEN_GITHUB }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
