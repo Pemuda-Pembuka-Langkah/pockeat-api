@@ -7,6 +7,7 @@ import os
 import binascii
 import logging
 from typing import Union, List, Dict, Any, cast
+from pydantic import SecretStr
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 
@@ -49,12 +50,12 @@ class BaseLangChainService:
 
         # Create text LLM
         self.text_llm = ChatGoogleGenerativeAI(
-            model=self.text_model_name, api_key=api_key, temperature=0.1
+            model=self.text_model_name, api_key=SecretStr(api_key), temperature=0.1
         )
 
         # Create multimodal LLM
         self.multimodal_llm = ChatGoogleGenerativeAI(
-            model=self.multimodal_model_name, api_key=api_key, temperature=0.1
+            model=self.multimodal_model_name, api_key=SecretStr(api_key), temperature=0.1
         )
 
     def _read_image_bytes(self, image_file) -> str:
