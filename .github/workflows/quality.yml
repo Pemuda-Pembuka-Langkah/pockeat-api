@@ -38,9 +38,21 @@ jobs:
         set -o pipefail
         bandit -r api | tee bandit-results.txt
 
+    - name: Check directory structure
+      run: |
+        echo "Repository root contents:"
+        ls -la
+        echo "Testing for tests directory:"
+        ls -la tests/ || echo "tests/ directory not found"
+        echo "Checking potential test locations:"
+        find . -name "test_*.py" -type f | sort
+
     - name: Run pytest with coverage
       run: |
-        pytest tests/ -v --cov=api --cov-report=xml --cov-report=term --cov-fail-under=90
+        # First try the expected location
+        pytest --cov=api --cov-report=xml --cov-report=term --cov-fail-under=90 || \
+        # If the first attempt fails, try discovering tests by filename pattern
+        python -m pytest $(find . -name "test_*.py" -type f) --cov=api --cov-report=xml --cov-report=term --cov-fail-under=90
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3

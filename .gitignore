@@ -28,13 +28,6 @@ example_*.py
 examples/
 
 
-# Test files
-test_*.py
-*test*.py
-tests/
-test-*.json
-*test*.json
-
 # Flask stuff:
 instance/
 .webassets-cache
