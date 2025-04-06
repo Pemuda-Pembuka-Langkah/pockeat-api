@@ -135,27 +135,29 @@ class TestAPIRoutes:
             calories_burned=350
         )
         
-        with patch("api.services.gemini_service.GeminiService.analyze_exercise", 
-                   return_value=mock_result):
-            response = client.post(
-                "/api/exercise/analyze",
-                json={"description": "running for 30 minutes", "user_weight_kg": 70.5}
-            )
-            assert response.status_code == 200
-            assert response.json()["exercise_type"] == "Running"
+        # Mock the analyze_exercise method for this test
+        mock_gemini_service.analyze_exercise.return_value = mock_result
+        
+        response = client.post(
+            "/api/exercise/analyze",
+            json={"description": "running for 30 minutes", "user_weight_kg": 70.5}
+        )
+        assert response.status_code == 200
+        assert response.json()["exercise_type"] == "Running"
 
     def test_analyze_exercise_service_unavailable(self, client):
         """Test analyzing exercise when service is unavailable."""
-        with patch("api.services.gemini_service.GeminiService.analyze_exercise", 
-                   side_effect=Exception("Service unavailable")):
-            response = client.post(
-                "/api/exercise/analyze",
-                json={"description": "running for 30 minutes"}
-            )
-            # Print response for debugging
-            print(f"Error response: {response.json()}")
-            assert response.status_code == 500
-            assert "detail" in response.json()
+        # Mock the analyze_exercise method to raise an exception
+        mock_gemini_service.analyze_exercise.side_effect = Exception("Service unavailable")
+        
+        response = client.post(
+            "/api/exercise/analyze",
+            json={"description": "running for 30 minutes"}
+        )
+        # Print response for debugging
+        print(f"Error response: {response.json()}")
+        assert response.status_code == 500
+        assert "detail" in response.json()
 
     def test_correct_food_analysis(self, client):
         """Test correcting food analysis."""
@@ -171,23 +173,24 @@ class TestAPIRoutes:
             nutrition_info=NutritionInfo(calories=250)
         )
         
-        with patch("api.services.gemini_service.GeminiService.correct_food_analysis", 
-                   return_value=corrected_result):
-            # Convert the previous result to dict and remove the timestamp field
-            previous_result_dict = previous_result.dict()
-            if "timestamp" in previous_result_dict:
-                previous_result_dict.pop("timestamp")
-                
-            response = client.post(
-                "/api/food/correct/text",
-                json={
-                    "previous_result": previous_result_dict,
-                    "user_comment": "correction comment"
-                }
-            )
-            assert response.status_code == 200
-            assert response.json()["food_name"] == "Corrected Food"
-            assert response.json()["nutrition_info"]["calories"] == 250
+        # Mock the correct_food_analysis method for this test
+        mock_gemini_service.correct_food_analysis.return_value = corrected_result
+        
+        # Convert the previous result to dict and remove the timestamp field
+        previous_result_dict = previous_result.dict()
+        if "timestamp" in previous_result_dict:
+            previous_result_dict.pop("timestamp")
+            
+        response = client.post(
+            "/api/food/correct/text",
+            json={
+                "previous_result": previous_result_dict,
+                "user_comment": "correction comment"
+            }
+        )
+        assert response.status_code == 200
+        assert response.json()["food_name"] == "Corrected Food"
+        assert response.json()["nutrition_info"]["calories"] == 250
 
     def test_correct_exercise_analysis(self, client):
         """Test correcting exercise analysis."""
@@ -205,22 +208,23 @@ class TestAPIRoutes:
             calories_burned=350
         )
         
-        with patch("api.services.gemini_service.GeminiService.correct_exercise_analysis", 
-                   return_value=corrected_result):
-            # Convert the previous result to dict and remove the timestamp field
-            previous_result_dict = previous_result.dict()
-            if "timestamp" in previous_result_dict:
-                previous_result_dict.pop("timestamp")
-                
-            response = client.post(
-                "/api/exercise/correct",
-                json={
-                    "previous_result": previous_result_dict,
-                    "user_comment": "correction comment"
-                }
-            )
-            assert response.status_code == 200
-            assert response.json()["exercise_type"] == "Running"
+        # Mock the correct_exercise_analysis method for this test
+        mock_gemini_service.correct_exercise_analysis.return_value = corrected_result
+        
+        # Convert the previous result to dict and remove the timestamp field
+        previous_result_dict = previous_result.dict()
+        if "timestamp" in previous_result_dict:
+            previous_result_dict.pop("timestamp")
+            
+        response = client.post(
+            "/api/exercise/correct",
+            json={
+                "previous_result": previous_result_dict,
+                "user_comment": "correction comment"
+            }
+        )
+        assert response.status_code == 200
+        assert response.json()["exercise_type"] == "Running"
 
     @pytest.mark.asyncio
     async def test_analyze_food_by_image(self, client):
@@ -231,30 +235,25 @@ class TestAPIRoutes:
             nutrition_info=NutritionInfo(calories=450)
         )
         
-        # First mock the _read_image_bytes method to avoid image validation
-        with patch("api.services.gemini.base_service.BaseLangChainService._read_image_bytes") as mock_read:
-            # Configure mock to return a byte string
-            mock_read.return_value = "mock_base64_image_string"
-            
-            # Then mock the analyze_food_by_image method to return our mock result
-            with patch("api.services.gemini_service.GeminiService.analyze_food_by_image", 
-                    return_value=mock_result):
-                # Create a simple mock image file
-                mock_image_content = b"This is a mock food image for testing"
-                
-                # Use multipart/form-data to upload file and provide description
-                response = client.post(
-                    "/api/food/analyze/image",
-                    files={"image": ("test_image.jpg", mock_image_content, "image/jpeg")}
-                )
-                
-                # Print response for debugging
-                print(f"Response status: {response.status_code}")
-                print(f"Response content: {response.content}")
-                
-                assert response.status_code == 200
-                assert response.json()["food_name"] == "Pizza"
-                assert response.json()["nutrition_info"]["calories"] == 450
+        # Mock the _read_image_bytes method to avoid image validation
+        mock_gemini_service.analyze_food_by_image.return_value = mock_result
+        
+        # Create a simple mock image file
+        mock_image_content = b"This is a mock food image for testing"
+        
+        # Use multipart/form-data to upload file and provide description
+        response = client.post(
+            "/api/food/analyze/image",
+            files={"image": ("test_image.jpg", mock_image_content, "image/jpeg")}
+        )
+        
+        # Print response for debugging
+        print(f"Response status: {response.status_code}")
+        print(f"Response content: {response.content}")
+        
+        assert response.status_code == 200
+        assert response.json()["food_name"] == "Pizza"
+        assert response.json()["nutrition_info"]["calories"] == 450
 
     @pytest.mark.asyncio
     async def test_analyze_nutrition_label(self, client):
@@ -265,29 +264,24 @@ class TestAPIRoutes:
             nutrition_info=NutritionInfo(calories=200, protein=15)
         )
         
-        # First mock the _read_image_bytes method to avoid image validation
-        with patch("api.services.gemini.base_service.BaseLangChainService._read_image_bytes") as mock_read:
-            # Configure mock to return a byte string
-            mock_read.return_value = "mock_base64_image_string"
-            
-            # Then mock the analyze_nutrition_label method to return our mock result
-            with patch("api.services.gemini_service.GeminiService.analyze_nutrition_label", 
-                    return_value=mock_result):
-                # Create a simple mock image file
-                mock_image_content = b"This is a mock nutrition label for testing"
-                
-                # Use multipart/form-data to upload file
-                response = client.post(
-                    "/api/food/analyze/nutrition-label",
-                    files={"image": ("nutrition_label.jpg", mock_image_content, "image/jpeg")},
-                    data={"servings": "2.0"}
-                )
-                
-                # Print response for debugging
-                print(f"Response status: {response.status_code}")
-                print(f"Response content: {response.content}")
-                
-                assert response.status_code == 200
-                assert response.json()["food_name"] == "Nutrition Facts"
-                assert response.json()["nutrition_info"]["calories"] == 200
-                assert response.json()["nutrition_info"]["protein"] == 15 
+        # Mock the analyze_nutrition_label method to return our mock result
+        mock_gemini_service.analyze_nutrition_label.return_value = mock_result
+        
+        # Create a simple mock image file
+        mock_image_content = b"This is a mock nutrition label for testing"
+        
+        # Use multipart/form-data to upload file
+        response = client.post(
+            "/api/food/analyze/nutrition-label",
+            files={"image": ("nutrition_label.jpg", mock_image_content, "image/jpeg")},
+            data={"servings": "2.0"}
+        )
+        
+        # Print response for debugging
+        print(f"Response status: {response.status_code}")
+        print(f"Response content: {response.content}")
+        
+        assert response.status_code == 200
+        assert response.json()["food_name"] == "Nutrition Facts"
+        assert response.json()["nutrition_info"]["calories"] == 200
+        assert response.json()["nutrition_info"]["protein"] == 15 
