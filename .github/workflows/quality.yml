@@ -84,12 +84,20 @@ jobs:
           fetch-depth: 0  # Shallow clones should be disabled for better relevancy
       
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
+        uses: SonarSource/sonarqube-scan-action@v1.1.0
         env:
-          GITHUB_TOKEN: ${{ secrets.TOKEN_GITHUB }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
             -Dsonar.projectKey=Pemuda-Pembuka-Langkah_pockeat-api
             -Dsonar.organization=Pemuda-Pembuka-Langkah
-            -Dsonar.python.coverage.reportPaths=coverage.xml 
+            -Dsonar.python.coverage.reportPaths=coverage.xml
+            -Dsonar.sources=api
+            -Dsonar.tests=tests
+
+      - name: SonarQube Quality Gate check
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} 
