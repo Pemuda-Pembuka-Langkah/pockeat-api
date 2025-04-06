@@ -1,5 +1,10 @@
 # PockEat API
 
+[![Code Quality](https://github.com/Pemuda-Pembuka-Langkah/pockeat-api/actions/workflows/quality.yml/badge.svg)](https://github.com/Pemuda-Pembuka-Langkah/pockeat-api/actions/workflows/quality.yml)
+[![codecov](https://codecov.io/gh/Pemuda-Pembuka-Langkah/pockeat-api/branch/main/graph/badge.svg)](https://codecov.io/gh/Pemuda-Pembuka-Langkah/pockeat-api)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Pemuda-Pembuka-Langkah_pockeat-api&metric=alert_status)](https://sonarcloud.io/dashboard?id=Pemuda-Pembuka-Langkah_pockeat-api)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=Pemuda-Pembuka-Langkah_pockeat-api&metric=coverage)](https://sonarcloud.io/dashboard?id=Pemuda-Pembuka-Langkah_pockeat-api)
+
 A FastAPI-based API for food and exercise analysis using Google's Gemini models.
 
 ## Features

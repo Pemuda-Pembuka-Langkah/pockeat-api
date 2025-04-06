@@ -18,4 +18,6 @@ exclude_lines =
     raise ImportError
     except ImportError:
     def run_command
-    def main 
+    def main
+
+fail_under = 90 

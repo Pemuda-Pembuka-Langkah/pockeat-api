@@ -7,22 +7,22 @@ from api.models.food_analysis import (
     NutritionInfo,
     FoodAnalysisResult,
     FoodAnalysisRequest,
-    FoodCorrectionRequest
+    FoodCorrectionRequest,
 )
 
 from api.models.exercise_analysis import (
     ExerciseAnalysisResult,
     ExerciseAnalysisRequest,
-    ExerciseCorrectionRequest
+    ExerciseCorrectionRequest,
 )
 
 __all__ = [
-    'Ingredient',
-    'NutritionInfo',
-    'FoodAnalysisResult',
-    'FoodAnalysisRequest',
-    'FoodCorrectionRequest',
-    'ExerciseAnalysisResult',
-    'ExerciseAnalysisRequest',
-    'ExerciseCorrectionRequest'
-] 
+    "Ingredient",
+    "NutritionInfo",
+    "FoodAnalysisResult",
+    "FoodAnalysisRequest",
+    "FoodCorrectionRequest",
+    "ExerciseAnalysisResult",
+    "ExerciseAnalysisRequest",
+    "ExerciseCorrectionRequest",
+]
