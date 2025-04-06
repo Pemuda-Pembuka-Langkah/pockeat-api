@@ -186,7 +186,7 @@ async def analyze_exercise(
     logger.info(f"Analyzing exercise: {request.description[:50]}..., weight: {request.user_weight_kg}kg")
     try:
         result = await gemini.analyze_exercise(request.description, request.user_weight_kg)
-        logger.info(f"Successfully analyzed exercise: {result.exercise_name}")
+        logger.info(f"Successfully analyzed exercise: {result.exercise_type}")
         return result
     except GeminiServiceException as e:  # pragma: no cover
         logger.error(f"Gemini service error while analyzing exercise: {str(e)}")
@@ -234,12 +234,12 @@ async def correct_exercise_analysis(
     request: ExerciseCorrectionRequest, gemini: GeminiService = Depends(get_gemini_service)
 ):
     """Correct exercise analysis."""
-    logger.info(f"Correcting exercise analysis for: {request.previous_result.exercise_name}")
+    logger.info(f"Correcting exercise analysis for: {request.previous_result.exercise_type}")
     try:
         result = await gemini.correct_exercise_analysis(
             request.previous_result, request.user_comment
         )
-        logger.info(f"Successfully corrected exercise analysis: {result.exercise_name}")
+        logger.info(f"Successfully corrected exercise analysis: {result.exercise_type}")
         return result
     except GeminiServiceException as e:  # pragma: no cover
         logger.error(f"Gemini service error while correcting exercise analysis: {str(e)}")
