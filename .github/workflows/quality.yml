@@ -1,8 +1,11 @@
 name: Code Quality & Testing
 
 on:
+  push:
+    branches:
+      - '**'  # This matches all branches
   pull_request:
-    branches: ["main", "master", "dev", "staging"]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
