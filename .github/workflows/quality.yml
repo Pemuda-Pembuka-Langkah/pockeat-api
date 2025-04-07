@@ -92,7 +92,7 @@ jobs:
         with:
           args: >
             -Dsonar.projectKey=Pemuda-Pembuka-Langkah_pockeat-api
-            -Dsonar.organization=Pemuda-Pembuka-Langkah
+            -Dsonar.organization=pemuda-pembuka-langkah-1
             -Dsonar.python.coverage.reportPaths=coverage.xml
             -Dsonar.sources=api
             -Dsonar.tests=tests
