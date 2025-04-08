@@ -4,7 +4,7 @@ Models for exercise analysis.
 
 import uuid
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Any
 from pydantic import BaseModel, Field
 
 

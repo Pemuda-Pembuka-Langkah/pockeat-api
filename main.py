@@ -171,7 +171,7 @@ async def exception_middleware(request: Request, call_next):
 # Run the application when executed directly
 if __name__ == "__main__":  # pragma: no cover
     # Get host and port from environment variables or use defaults
-    # Note: Using 0.0.0.0 binds to all interfaces, only use in secure environments 
+    # Note: Using 0.0.0.0 binds to all interfaces, only use in secure environments
     # or behind proper network security controls
     host = os.getenv("HOST", "127.0.0.1")  # Default to localhost for security
     port = int(os.getenv("PORT", 8080))
