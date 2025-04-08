@@ -71,7 +71,7 @@ jobs:
         echo "Code Coverage Report: https://codecov.io/gh/${REPO_NAME}/branch/${BRANCH_NAME}"
 
     - name: Upload coverage report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: coverage-report
         path: coverage.xml
@@ -91,7 +91,7 @@ jobs:
           fetch-depth: 0  # Shallow clones should be disabled for better relevancy
       
       - name: Download coverage report
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: coverage-report
           path: .
