@@ -156,11 +156,6 @@ class FoodAnalysisService(BaseLangChainService):
                 nutrition_info=NutritionInfo(),
                 error=error_message,
             )
-
-        logger.info(
-            f"Analyzing nutrition label from image: {getattr(image_file, 'filename', 'unknown')}"
-        )
-
         try:
             # Read image bytes
             image_base64 = self._read_image_bytes(image_file)
