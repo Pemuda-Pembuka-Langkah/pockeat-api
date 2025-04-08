@@ -4,14 +4,26 @@ API routes for PockEat API.
 
 import os
 import logging
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, Request
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+    File,
+    UploadFile,
+    Form,
+    Request,
+)
 from fastapi.responses import JSONResponse
 
 from api.services.gemini_service import GeminiService
 from api.services.gemini.exceptions import GeminiServiceException
-from api.models.food_analysis import FoodAnalysisResult, FoodAnalysisRequest, FoodCorrectionRequest
+from api.models.food_analysis import (
+    FoodAnalysisResult,
+    FoodAnalysisRequest,
+    FoodCorrectionRequest,
+)
 from api.models.exercise_analysis import (
     ExerciseAnalysisResult,
     ExerciseAnalysisRequest,
@@ -41,7 +53,8 @@ async def get_gemini_service() -> GeminiService:
     if gemini_service is None:  # pragma: no cover
         logger.error("Gemini service is unavailable for this request")
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Gemini service is unavailable"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Gemini service is unavailable",
         )
     return gemini_service
 
@@ -50,7 +63,7 @@ async def get_gemini_service() -> GeminiService:
 async def health_check(gemini: GeminiService = Depends(get_gemini_service)):
     """Health check endpoint."""
     is_gemini_available = await gemini.check_health()
-    
+
     if not is_gemini_available:
         logger.warning("Health check: Gemini service is unavailable")
     else:
@@ -80,7 +93,9 @@ async def analyze_food_by_text(
         return result
     except GeminiServiceException as e:
         logger.error(f"Gemini service error while analyzing food text: {str(e)}")
-        raise HTTPException(status_code=e.status_code, detail=e.message)  # pragma: no cover
+        raise HTTPException(
+            status_code=e.status_code, detail=e.message
+        )  # pragma: no cover
     except Exception as e:
         logger.error(f"Failed to analyze food from text: {str(e)}")
         raise HTTPException(
@@ -157,7 +172,9 @@ async def analyze_nutrition_label(
     gemini: GeminiService = Depends(get_gemini_service),
 ):
     """Analyze nutrition label from image."""
-    logger.info(f"Analyzing nutrition label from image: {image.filename}, servings: {servings}")
+    logger.info(
+        f"Analyzing nutrition label from image: {image.filename}, servings: {servings}"
+    )
     try:
         result = await gemini.analyze_nutrition_label(image.file, servings)
         logger.info(f"Successfully analyzed nutrition label: {result.food_name}")
@@ -180,12 +197,17 @@ async def analyze_nutrition_label(
     tags=["Exercise"],
 )
 async def analyze_exercise(
-    request: ExerciseAnalysisRequest, gemini: GeminiService = Depends(get_gemini_service)
+    request: ExerciseAnalysisRequest,
+    gemini: GeminiService = Depends(get_gemini_service),
 ):
     """Analyze exercise from description."""
-    logger.info(f"Analyzing exercise: {request.description[:50]}..., weight: {request.user_weight_kg}kg")
+    logger.info(
+        f"Analyzing exercise: {request.description[:50]}..., weight: {request.user_weight_kg}kg"
+    )
     try:
-        result = await gemini.analyze_exercise(request.description, request.user_weight_kg)
+        result = await gemini.analyze_exercise(
+            request.description, request.user_weight_kg
+        )
         logger.info(f"Successfully analyzed exercise: {result.exercise_type}")
         return result
     except GeminiServiceException as e:  # pragma: no cover
@@ -211,7 +233,9 @@ async def correct_food_text_analysis(
     """Correct food text analysis."""
     logger.info(f"Correcting food analysis for: {request.previous_result.food_name}")
     try:
-        result = await gemini.correct_food_analysis(request.previous_result, request.user_comment)
+        result = await gemini.correct_food_analysis(
+            request.previous_result, request.user_comment
+        )
         logger.info(f"Successfully corrected food analysis: {result.food_name}")
         return result
     except GeminiServiceException as e:  # pragma: no cover
@@ -231,10 +255,13 @@ async def correct_food_text_analysis(
     tags=["Exercise"],
 )
 async def correct_exercise_analysis(
-    request: ExerciseCorrectionRequest, gemini: GeminiService = Depends(get_gemini_service)
+    request: ExerciseCorrectionRequest,
+    gemini: GeminiService = Depends(get_gemini_service),
 ):
     """Correct exercise analysis."""
-    logger.info(f"Correcting exercise analysis for: {request.previous_result.exercise_type}")
+    logger.info(
+        f"Correcting exercise analysis for: {request.previous_result.exercise_type}"
+    )
     try:
         result = await gemini.correct_exercise_analysis(
             request.previous_result, request.user_comment
@@ -242,7 +269,9 @@ async def correct_exercise_analysis(
         logger.info(f"Successfully corrected exercise analysis: {result.exercise_type}")
         return result
     except GeminiServiceException as e:  # pragma: no cover
-        logger.error(f"Gemini service error while correcting exercise analysis: {str(e)}")
+        logger.error(
+            f"Gemini service error while correcting exercise analysis: {str(e)}"
+        )
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:  # pragma: no cover
         logger.error(f"Failed to correct exercise analysis: {str(e)}")
@@ -255,7 +284,10 @@ async def correct_exercise_analysis(
 async def debug_env():  # pragma: no cover
     """Debug endpoint for environment variables."""
     logger.debug("Debug endpoint accessed")
-    return {"has_key": bool(os.getenv("GOOGLE_API_KEY")), "env_vars": list(os.environ.keys())}
+    return {
+        "has_key": bool(os.getenv("GOOGLE_API_KEY")),
+        "env_vars": list(os.environ.keys()),
+    }
 
 
 @router.get("/user/profile", summary="Get user profile", tags=["User"])
@@ -281,13 +313,19 @@ async def protected_example(token: dict = Depends(verify_token)):  # pragma: no 
     }
 
 
-@router.get("/optional-auth-example", summary="Optional authentication example", tags=["Examples"])
+@router.get(
+    "/optional-auth-example",
+    summary="Optional authentication example",
+    tags=["Examples"],
+)
 async def optional_auth_example(request: Request):  # pragma: no cover
     """Example of a route with optional authentication."""
     user = await optional_verify_token(request)
 
     if user:
-        logger.info(f"Optional auth endpoint accessed by authenticated user: {user.get('uid')}")
+        logger.info(
+            f"Optional auth endpoint accessed by authenticated user: {user.get('uid')}"
+        )
         return {"message": "Authenticated user", "user_id": user.get("uid")}
     else:
         logger.info("Optional auth endpoint accessed by unauthenticated user")

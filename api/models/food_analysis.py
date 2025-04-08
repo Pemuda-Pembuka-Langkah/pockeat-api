@@ -30,39 +30,22 @@ class NutritionInfo(BaseModel):
 class FoodAnalysisResult(BaseModel):
     """Food analysis result model."""
 
-    id: str = Field(default_factory=lambda: str(uuid4()), description="Unique identifier")
+    id: str = Field(
+        default_factory=lambda: str(uuid4()), description="Unique identifier"
+    )
     food_name: str = Field(description="Name of the food")
-    ingredients: List[Ingredient] = Field(default_factory=list, description="List of ingredients")
+    ingredients: List[Ingredient] = Field(
+        default_factory=list, description="List of ingredients"
+    )
     nutrition_info: NutritionInfo = Field(
         default_factory=NutritionInfo, description="Nutrition information"
     )
-    error: Optional[str] = Field(default=None, description="Error message if analysis failed")
-    timestamp: datetime = Field(default_factory=datetime.now, description="Timestamp of analysis")
-
-    class Config:
-        """Pydantic model configuration."""
-
-        json_schema_extra = {
-            "example": {
-                "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "food_name": "Grilled Chicken Salad",
-                "ingredients": [
-                    {"name": "Chicken Breast", "servings": 100},
-                    {"name": "Lettuce", "servings": 50},
-                    {"name": "Tomato", "servings": 25},
-                ],
-                "nutrition_info": {
-                    "calories": 250,
-                    "protein": 30,
-                    "carbs": 15,
-                    "fat": 10,
-                    "sodium": 300,
-                    "fiber": 3,
-                    "sugar": 5,
-                },
-                "timestamp": "2023-03-25T12:00:00Z",
-            }
-        }
+    error: Optional[str] = Field(
+        default=None, description="Error message if analysis failed"
+    )
+    timestamp: datetime = Field(
+        default_factory=datetime.now, description="Timestamp of analysis"
+    )
 
 
 class FoodAnalysisRequest(BaseModel):
@@ -83,35 +66,8 @@ class FoodAnalysisRequest(BaseModel):
 class FoodCorrectionRequest(BaseModel):
     """Food correction request model."""
 
-    previous_result: FoodAnalysisResult = Field(description="Previous analysis result to correct")
+    previous_result: FoodAnalysisResult = Field(
+        description="Previous analysis result to correct"
+    )
     user_comment: str = Field(description="User's feedback for correction")
     servings: Optional[float] = Field(default=1.0, description="Number of servings")
-
-    class Config:
-        """Pydantic model configuration."""
-
-        json_schema_extra = {
-            "example": {
-                "previous_result": {
-                    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                    "food_name": "Grilled Chiken Salad",  # Misspelled intentionally for example
-                    "ingredients": [
-                        {"name": "Chicken Breast", "servings": 100},
-                        {"name": "Lettuce", "servings": 50},
-                        {"name": "Tomato", "servings": 25},
-                    ],
-                    "nutrition_info": {
-                        "calories": 250,
-                        "protein": 30,
-                        "carbs": 15,
-                        "fat": 10,
-                        "sodium": 300,
-                        "fiber": 3,
-                        "sugar": 5,
-                    },
-                    "timestamp": "2023-03-25T12:00:00Z",
-                },
-                "user_comment": "The name should be 'Grilled Chicken Salad', not 'Grilled Chiken Salad'",
-                "servings": 1.0,
-            }
-        }

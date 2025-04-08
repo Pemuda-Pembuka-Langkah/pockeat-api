@@ -41,7 +41,9 @@ class GeminiAPIError(GeminiServiceException):
             message: The error message.
             status_code: The HTTP status code.
         """
-        super().__init__(message=f"Gemini API error: {message}", status_code=status_code)
+        super().__init__(
+            message=f"Gemini API error: {message}", status_code=status_code
+        )
 
 
 class GeminiParsingError(GeminiServiceException):
