@@ -43,7 +43,9 @@ class BaseLangChainService:
             logger.error("Google API key not found in environment variables")
             raise GeminiAPIKeyMissingError()
 
-        logger.info(f"Initializing BaseLangChainService with text model: {text_model_name}")
+        logger.info(
+            f"Initializing BaseLangChainService with text model: {text_model_name}"
+        )
         logger.info(
             f"Initializing BaseLangChainService with multimodal model: {multimodal_model_name}"
         )
@@ -55,7 +57,9 @@ class BaseLangChainService:
 
         # Create multimodal LLM
         self.multimodal_llm = ChatGoogleGenerativeAI(
-            model=self.multimodal_model_name, api_key=SecretStr(api_key), temperature=0.1
+            model=self.multimodal_model_name,
+            api_key=SecretStr(api_key),
+            temperature=0.1,
         )
 
     def _read_image_bytes(self, image_file) -> str:
@@ -99,9 +103,13 @@ class BaseLangChainService:
                 base64.b64decode(b64_string)
             except binascii.Error as e:  # pragma: no cover
                 logger.error(f"Invalid base64 encoding: {str(e)}")
-                raise InvalidImageError("Generated invalid base64 string. Check image data.")
+                raise InvalidImageError(
+                    "Generated invalid base64 string. Check image data."
+                )
 
-            logger.debug(f"Successfully encoded image file to base64 (length: {len(b64_string)})")
+            logger.debug(
+                f"Successfully encoded image file to base64 (length: {len(b64_string)})"
+            )
             return b64_string
 
         except InvalidImageError as e:
@@ -130,7 +138,9 @@ class BaseLangChainService:
             logger.error(f"Error invoking text model: {str(e)}")
             raise
 
-    async def _invoke_multimodal_model(self, text_prompt: str, image_base64: str) -> str:
+    async def _invoke_multimodal_model(
+        self, text_prompt: str, image_base64: str
+    ) -> str:
         """Invoke the multimodal model with text and image.
 
         Args:
@@ -141,7 +151,9 @@ class BaseLangChainService:
             The model's response as a string.
         """
         try:
-            logger.debug(f"Invoking multimodal model with prompt: {text_prompt[:100]}...")
+            logger.debug(
+                f"Invoking multimodal model with prompt: {text_prompt[:100]}..."
+            )
 
             # Create multipart message with image and text
             human_message = HumanMessage(

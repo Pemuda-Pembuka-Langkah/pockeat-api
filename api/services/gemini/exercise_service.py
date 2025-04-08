@@ -8,7 +8,10 @@ from typing import Dict, Any, Optional
 
 from api.services.gemini.base_service import BaseLangChainService
 from api.services.gemini.exceptions import GeminiServiceException
-from api.services.gemini.utils.json_parser import extract_json_from_text, parse_json_safely
+from api.services.gemini.utils.json_parser import (
+    extract_json_from_text,
+    parse_json_safely,
+)
 from api.models.exercise_analysis import ExerciseAnalysisResult
 
 # Configure logger
@@ -189,7 +192,9 @@ The user has provided this feedback to correct or improve the analysis:
 Please correct the analysis based on this feedback. Return your corrected response as a complete JSON object with the same structure as the original analysis.
 """
 
-    def _parse_exercise_analysis_response(self, response_text: str) -> ExerciseAnalysisResult:
+    def _parse_exercise_analysis_response(
+        self, response_text: str
+    ) -> ExerciseAnalysisResult:
         """Parse the response from the Gemini API for exercise analysis.
 
         Args:
@@ -210,11 +215,11 @@ Please correct the analysis based on this feedback. Return your corrected respon
 
             # Parse the JSON
             data = parse_json_safely(json_str)
-            
+
             # Extract basic fields
             exercise_type = data.get("exercise_type", "unknown")
             error = data.get("error", None)
-            
+
             # Extract numeric and string fields
             calories_burned = self._extract_calories_burned(data)
             duration = self._extract_duration(data)
@@ -230,7 +235,9 @@ Please correct the analysis based on this feedback. Return your corrected respon
             )
 
         except Exception as e:
-            logger.error(f"Error parsing exercise analysis response: {str(e)}")  # pragma: no cover
+            logger.error(
+                f"Error parsing exercise analysis response: {str(e)}"
+            )  # pragma: no cover
             # Instead of raising an exception, return a result with the error
             return ExerciseAnalysisResult(  # pragma: no cover
                 exercise_type="unknown",
@@ -239,13 +246,13 @@ Please correct the analysis based on this feedback. Return your corrected respon
                 intensity="unknown",
                 error=f"Failed to parse response: {str(e)}",
             )
-            
+
     def _extract_calories_burned(self, data: Dict[str, Any]) -> float:
         """Extract calories burned from parsed data.
-        
+
         Args:
             data: The parsed JSON data.
-            
+
         Returns:
             Calories burned value.
         """
@@ -253,13 +260,13 @@ Please correct the analysis based on this feedback. Return your corrected respon
             return float(data.get("calories_burned", 0))
         except (ValueError, TypeError):  # pragma: no cover
             return 0
-    
+
     def _extract_duration(self, data: Dict[str, Any]) -> str:
         """Extract duration from parsed data.
-        
+
         Args:
             data: The parsed JSON data.
-            
+
         Returns:
             Duration string.
         """
@@ -267,13 +274,13 @@ Please correct the analysis based on this feedback. Return your corrected respon
             return str(data.get("duration", "unknown"))
         except (ValueError, TypeError):  # pragma: no cover
             return "unknown"
-    
+
     def _extract_intensity(self, data: Dict[str, Any]) -> str:
         """Extract intensity from parsed data.
-        
+
         Args:
             data: The parsed JSON data.
-            
+
         Returns:
             Intensity level.
         """
@@ -282,13 +289,13 @@ Please correct the analysis based on this feedback. Return your corrected respon
         if intensity not in valid_intensities:  # pragma: no cover
             intensity = "unknown"
         return intensity
-        
+
     def _create_error_result(self, error_message: str) -> ExerciseAnalysisResult:
         """Create an error result.
-        
+
         Args:
             error_message: The error message.
-            
+
         Returns:
             Exercise analysis result with error.
         """

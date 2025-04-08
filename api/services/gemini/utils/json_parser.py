@@ -55,7 +55,9 @@ def extract_json_from_text(text: str) -> Optional[str]:
             return cast(str, match_arr.group(0))
     except re.error:  # pragma: no cover
         # Fallback to simpler pattern if the recursive pattern isn't supported
-        json_pattern = r"({[^{}]*(?:{[^{}]*}[^{}]*)*}|\[[^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*\])"
+        json_pattern = (
+            r"({[^{}]*(?:{[^{}]*}[^{}]*)*}|\[[^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*\])"
+        )
         match = re.search(json_pattern, text, re.DOTALL)
 
         if match:
@@ -112,7 +114,7 @@ def fix_common_json_errors(json_str: str) -> str:  # pragma: no cover
     # Special case for the test case with escaped quotes
     if json_str == '{"key": "\\"value\\""}':
         return '{"key": "value"}'
-        
+
     # Apply transformations in sequence
     fixed = _fix_quotes(json_str)
     fixed = _fix_commas(fixed)
@@ -122,12 +124,14 @@ def fix_common_json_errors(json_str: str) -> str:  # pragma: no cover
     logger.debug(f"Fixed JSON: {fixed[:100]}...")
     return fixed
 
+
 def _fix_quotes(json_str: str) -> str:
     """Replace single quotes with double quotes."""
     # Replace single quotes with double quotes, but only for keys and string values
     fixed = re.sub(r"'([^']*)':", r'"\1":', json_str)
     fixed = re.sub(r":\s*'([^']*)'", r': "\1"', fixed)
     return fixed
+
 
 def _fix_commas(json_str: str) -> str:
     """Fix issues with commas."""
@@ -139,11 +143,12 @@ def _fix_commas(json_str: str) -> str:
     fixed = re.sub(r"}\s*{", "}, {", fixed)
     fixed = re.sub(r'"\s*{', '", {', fixed)
     fixed = re.sub(r'"\s*"', '", "', fixed)
-    
+
     # Fix repeated colons
     fixed = re.sub(r":+", ":", fixed)
-    
+
     return fixed
+
 
 def _fix_brackets(json_str: str) -> str:
     """Fix mismatched brackets by adding missing closing brackets."""
@@ -175,18 +180,19 @@ def _fix_brackets(json_str: str) -> str:
 
     return "".join(result)
 
+
 def _fix_escaped_quotes(json_str: str) -> str:
     """Fix escaped quotes in JSON."""
     # First, replace all escaped quotes with a placeholder
     placeholder = "__ESCAPED_QUOTE__"
     fixed = json_str.replace('\\"', placeholder)
-    
+
     # Then, fix any double quotes that are now directly adjacent
     fixed = re.sub(r'"{2,}', '"', fixed)
-    
+
     # Finally, replace the placeholder with just a regular quote in strings
-    fixed = fixed.replace(placeholder, '')
-    
+    fixed = fixed.replace(placeholder, "")
+
     return fixed
 
 

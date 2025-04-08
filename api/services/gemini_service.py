@@ -142,4 +142,6 @@ class GeminiService:
         Raises:
             GeminiServiceException: If the correction fails.
         """
-        return await self.exercise_service.correct_analysis(previous_result, user_comment)
+        return await self.exercise_service.correct_analysis(
+            previous_result, user_comment
+        )

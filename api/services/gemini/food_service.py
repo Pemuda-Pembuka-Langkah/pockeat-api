@@ -11,7 +11,10 @@ from api.services.gemini.exceptions import (
     GeminiServiceException,
     InvalidImageError,
 )
-from api.services.gemini.utils.json_parser import extract_json_from_text, parse_json_safely
+from api.services.gemini.utils.json_parser import (
+    extract_json_from_text,
+    parse_json_safely,
+)
 from api.models.food_analysis import FoodAnalysisResult, Ingredient, NutritionInfo
 from langchain.prompts import PromptTemplate
 from langchain.schema.output_parser import StrOutputParser
@@ -91,7 +94,9 @@ class FoodAnalysisService(BaseLangChainService):
                 error=error_message,
             )
 
-        logger.info(f"Analyzing food from image: {getattr(image_file, 'filename', 'unknown')}")
+        logger.info(
+            f"Analyzing food from image: {getattr(image_file, 'filename', 'unknown')}"
+        )
 
         try:
             # Read image bytes
@@ -110,7 +115,10 @@ class FoodAnalysisService(BaseLangChainService):
             # Handle image processing errors
             logger.error(f"Invalid image error: {str(e)}")
             return FoodAnalysisResult(
-                food_name="Unknown", ingredients=[], nutrition_info=NutritionInfo(), error=str(e)
+                food_name="Unknown",
+                ingredients=[],
+                nutrition_info=NutritionInfo(),
+                error=str(e),
             )
         except Exception as e:  # pragma: no cover
             logger.error(f"Error in analyze_by_image: {str(e)}")
@@ -425,12 +433,13 @@ The response should be in this format:
             if not json_str:
                 logger.warning("No JSON found in response, returning raw response")
                 return self._create_error_result(
-                    default_food_name, f"Failed to parse response: {response_text[:100]}..."
+                    default_food_name,
+                    f"Failed to parse response: {response_text[:100]}...",
                 )
 
             # Parse the JSON
             data = parse_json_safely(json_str)
-            
+
             # Extract ingredients
             ingredients = self._extract_ingredients(data)
 
@@ -448,7 +457,9 @@ The response should be in this format:
             return result
 
         except Exception as e:
-            logger.error(f"Error parsing food analysis response: {str(e)}")  # pragma: no cover
+            logger.error(
+                f"Error parsing food analysis response: {str(e)}"
+            )  # pragma: no cover
             # Instead of raising an exception, return a result with the error
             return FoodAnalysisResult(  # pragma: no cover
                 food_name=default_food_name,
@@ -456,13 +467,13 @@ The response should be in this format:
                 nutrition_info=NutritionInfo(),
                 error=f"Failed to parse response: {str(e)}",
             )
-            
+
     def _extract_ingredients(self, data: Dict[str, Any]) -> list[Ingredient]:
         """Extract ingredients from parsed data.
-        
+
         Args:
             data: The parsed JSON data.
-            
+
         Returns:
             List of ingredients.
         """
@@ -474,13 +485,13 @@ The response should be in this format:
                     servings = float(ing_data.get("servings", 0))
                     ingredients.append(Ingredient(name=name, servings=servings))
         return ingredients
-        
+
     def _extract_nutrition_info(self, data: Dict[str, Any]) -> NutritionInfo:
         """Extract nutrition info from parsed data.
-        
+
         Args:
             data: The parsed JSON data.
-            
+
         Returns:
             Nutrition info object.
         """
@@ -497,14 +508,16 @@ The response should be in this format:
                 sugar=float(nutrition_data.get("sugar", 0)),
             )
         return nutrition_info
-        
-    def _create_error_result(self, food_name: str, error_message: str) -> FoodAnalysisResult:
+
+    def _create_error_result(
+        self, food_name: str, error_message: str
+    ) -> FoodAnalysisResult:
         """Create an error result.
-        
+
         Args:
             food_name: The food name.
             error_message: The error message.
-            
+
         Returns:
             Food analysis result with error.
         """

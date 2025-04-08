@@ -11,13 +11,19 @@ from pydantic import BaseModel, Field
 class ExerciseAnalysisResult(BaseModel):
     """Exercise analysis result model."""
 
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique identifier")
+    id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()), description="Unique identifier"
+    )
     exercise_type: str = Field(description="Type of exercise (e.g., cardio, strength)")
     calories_burned: float = Field(description="Estimated calories burned")
     duration: str = Field(description="Duration in minutes")
     intensity: str = Field(description="Exercise intensity (low, medium, high)")
-    error: Optional[str] = Field(default=None, description="Error message if analysis failed")
-    timestamp: datetime = Field(default_factory=datetime.now, description="Timestamp of analysis")
+    error: Optional[str] = Field(
+        default=None, description="Error message if analysis failed"
+    )
+    timestamp: datetime = Field(
+        default_factory=datetime.now, description="Timestamp of analysis"
+    )
 
 
 class ExerciseAnalysisRequest(BaseModel):
