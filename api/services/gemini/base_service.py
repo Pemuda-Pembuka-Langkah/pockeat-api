@@ -1,12 +1,12 @@
 """
-Base service for Gemini services using LangChain.
+Base service class for Gemini API integration using LangChain.
 """
 
 import base64
 import os
 import binascii
 import logging
-from typing import Union, List, Dict, Any, cast
+from typing import Dict, Any, cast
 from pydantic import SecretStr
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage

@@ -45,7 +45,7 @@ try:
 
         if project_id and private_key and client_email:
             creds_dict = {
-                "type": "service_account",
+                "type": os.getenv("FIREBASE_ACCOUNT_TYPE", "service_account"),
                 "project_id": project_id,
                 "private_key": private_key,
                 "client_email": client_email,

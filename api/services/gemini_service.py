@@ -5,7 +5,7 @@ Main service for Gemini API integration.
 import os
 from typing import Optional
 
-from api.services.gemini.exceptions import GeminiServiceException, GeminiAPIKeyMissingError
+from api.services.gemini.exceptions import GeminiAPIKeyMissingError
 from api.services.gemini.food_service import FoodAnalysisService
 from api.services.gemini.exercise_service import ExerciseAnalysisService
 from api.models.food_analysis import FoodAnalysisResult

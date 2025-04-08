@@ -4,7 +4,6 @@ API routes for PockEat API.
 
 import os
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, Request
 from fastapi.responses import JSONResponse

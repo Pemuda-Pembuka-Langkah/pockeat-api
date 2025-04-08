@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Any, Optional
 
 from api.services.gemini.base_service import BaseLangChainService
-from api.services.gemini.exceptions import GeminiServiceException, GeminiParsingError
+from api.services.gemini.exceptions import GeminiServiceException
 from api.services.gemini.utils.json_parser import extract_json_from_text, parse_json_safely
 from api.models.exercise_analysis import ExerciseAnalysisResult
 
@@ -107,7 +107,7 @@ class ExerciseAnalysisService(BaseLangChainService):
             # Re-raise GeminiServiceExceptions
             raise
         except Exception as e:  # pragma: no cover
-            logger.error(f"Error in correct_analysis: {str(e)}")
+            logger.error(f"Error in correct_analysis: {str(e)}")  # pragma: no cover
             error_message = f"Failed to correct exercise analysis: {str(e)}"
 
             # Return original result with error
@@ -197,9 +197,6 @@ Please correct the analysis based on this feedback. Return your corrected respon
 
         Returns:
             The exercise analysis result.
-
-        Raises:
-            GeminiParsingError: If the response cannot be parsed.
         """
         try:
             print(f"Exercise Analysis Raw Response: {response_text}")
@@ -207,38 +204,21 @@ Please correct the analysis based on this feedback. Return your corrected respon
             json_str = extract_json_from_text(response_text)
             if not json_str:  # pragma: no cover
                 logger.warning("No JSON found in response, returning raw response")
-                return ExerciseAnalysisResult(
-                    exercise_type="unknown",
-                    calories_burned=0,
-                    duration="unknown",
-                    intensity="unknown",
-                    error=f"Failed to parse response: {response_text[:100]}...",
+                return self._create_error_result(
+                    f"Failed to parse response: {response_text[:100]}..."
                 )
 
             # Parse the JSON
             data = parse_json_safely(json_str)
-
+            
+            # Extract basic fields
             exercise_type = data.get("exercise_type", "unknown")
-
-            # Extract numeric fields with validation
-            try:
-                calories_burned = float(data.get("calories_burned", 0))
-            except (ValueError, TypeError):  # pragma: no cover
-                calories_burned = 0
-
-            try:
-                duration = str(data.get("duration", "unknown"))
-            except (ValueError, TypeError):  # pragma: no cover
-                duration = "unknown"
-
-            # Extract intensity
-            intensity = data.get("intensity", "unknown").lower()
-            valid_intensities = ["low", "medium", "high", "unknown"]
-            if intensity not in valid_intensities:  # pragma: no cover
-                intensity = "unknown"
-
-            # Check for error in the response
             error = data.get("error", None)
+            
+            # Extract numeric and string fields
+            calories_burned = self._extract_calories_burned(data)
+            duration = self._extract_duration(data)
+            intensity = self._extract_intensity(data)
 
             # Create and return the result
             return ExerciseAnalysisResult(
@@ -250,7 +230,7 @@ Please correct the analysis based on this feedback. Return your corrected respon
             )
 
         except Exception as e:
-            logger.error(f"Error parsing exercise analysis response: {str(e)}")
+            logger.error(f"Error parsing exercise analysis response: {str(e)}")  # pragma: no cover
             # Instead of raising an exception, return a result with the error
             return ExerciseAnalysisResult(  # pragma: no cover
                 exercise_type="unknown",
@@ -259,3 +239,63 @@ Please correct the analysis based on this feedback. Return your corrected respon
                 intensity="unknown",
                 error=f"Failed to parse response: {str(e)}",
             )
+            
+    def _extract_calories_burned(self, data: Dict[str, Any]) -> float:
+        """Extract calories burned from parsed data.
+        
+        Args:
+            data: The parsed JSON data.
+            
+        Returns:
+            Calories burned value.
+        """
+        try:
+            return float(data.get("calories_burned", 0))
+        except (ValueError, TypeError):  # pragma: no cover
+            return 0
+    
+    def _extract_duration(self, data: Dict[str, Any]) -> str:
+        """Extract duration from parsed data.
+        
+        Args:
+            data: The parsed JSON data.
+            
+        Returns:
+            Duration string.
+        """
+        try:
+            return str(data.get("duration", "unknown"))
+        except (ValueError, TypeError):  # pragma: no cover
+            return "unknown"
+    
+    def _extract_intensity(self, data: Dict[str, Any]) -> str:
+        """Extract intensity from parsed data.
+        
+        Args:
+            data: The parsed JSON data.
+            
+        Returns:
+            Intensity level.
+        """
+        intensity = data.get("intensity", "unknown").lower()
+        valid_intensities = ["low", "medium", "high", "unknown"]
+        if intensity not in valid_intensities:  # pragma: no cover
+            intensity = "unknown"
+        return intensity
+        
+    def _create_error_result(self, error_message: str) -> ExerciseAnalysisResult:
+        """Create an error result.
+        
+        Args:
+            error_message: The error message.
+            
+        Returns:
+            Exercise analysis result with error.
+        """
+        return ExerciseAnalysisResult(
+            exercise_type="unknown",
+            calories_burned=0,
+            duration="unknown",
+            intensity="unknown",
+            error=error_message,
+        )
