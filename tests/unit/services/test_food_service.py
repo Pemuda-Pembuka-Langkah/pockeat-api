@@ -374,7 +374,7 @@ class TestFoodAnalysisService:
             prompt = service._generate_food_image_analysis_prompt()
             
             # Verify prompt content - adjust the check to match the current implementation
-            assert "food image" in prompt.lower()
+            assert "this image" in prompt.lower()
             assert "JSON" in prompt
             assert "food_name" in prompt
             assert "ingredients" in prompt

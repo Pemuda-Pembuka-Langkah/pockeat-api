@@ -163,7 +163,7 @@ Exercise description: {description}
 
 {weight_info}
 
-Please estimate calorie burn based on the exercise intensity and duration. 
+Please estimate calorie burn based on the exercise intensity and duration. Estimate using a concrete proven formula to get the calories burned. 
 """
 
     def _generate_correction_prompt(
@@ -190,6 +190,7 @@ The user has provided this feedback to correct or improve the analysis:
 "{user_comment}"
 
 Please correct the analysis based on this feedback. Return your corrected response as a complete JSON object with the same structure as the original analysis.
+Estimate using a concrete proven formula to get the calories burned. 
 """
 
     def _parse_exercise_analysis_response(

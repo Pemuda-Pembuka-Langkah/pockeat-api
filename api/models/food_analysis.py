@@ -3,7 +3,7 @@ Food analysis models using Pydantic for FastAPI.
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 from uuid import uuid4
 from pydantic import BaseModel, Field
 
@@ -22,9 +22,15 @@ class NutritionInfo(BaseModel):
     protein: float = Field(default=0, description="Protein in grams")
     carbs: float = Field(default=0, description="Carbohydrates in grams")
     fat: float = Field(default=0, description="Fat in grams")
-    sodium: float = Field(default=0, description="Sodium in milligrams")
+    saturated_fat: float = Field(default=0, description="Saturated fat in grams")
+    sodium: float = Field(default=0, description="Sodium in grams")
     fiber: float = Field(default=0, description="Fiber in grams")
     sugar: float = Field(default=0, description="Sugar in grams")
+    cholesterol: float = Field(default=0, description="Cholesterol in mg")
+    nutrition_density: float = Field(default=0, description="Nutrition density score (nutrient content per calorie)")
+    vitamins_and_minerals: Dict[str, float] = Field(
+        default_factory=dict, description="Additional nutrients in appropriate units"
+    )
 
 
 class FoodAnalysisResult(BaseModel):
@@ -40,12 +46,19 @@ class FoodAnalysisResult(BaseModel):
     nutrition_info: NutritionInfo = Field(
         default_factory=NutritionInfo, description="Nutrition information"
     )
+    health_score: Optional[float] = Field(
+        default=None, description="Health score (calculated by Flutter model)"
+    )
+    warnings: Optional[List[str]] = Field(
+        default=None, description="Nutritional warnings (handled by Flutter model)"
+    )
     error: Optional[str] = Field(
         default=None, description="Error message if analysis failed"
     )
     timestamp: datetime = Field(
         default_factory=datetime.now, description="Timestamp of analysis"
     )
+
 
 
 class FoodAnalysisRequest(BaseModel):
