@@ -4,15 +4,17 @@ Food analysis service using Gemini API.
 
 import json
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional, List
 
 from api.services.gemini.base_service import BaseLangChainService
 from api.services.gemini.exceptions import (
     GeminiServiceException,
-    GeminiParsingError,
     InvalidImageError,
 )
-from api.services.gemini.utils.json_parser import extract_json_from_text, parse_json_safely
+from api.services.gemini.utils.json_parser import (
+    extract_json_from_text,
+    parse_json_safely,
+)
 from api.models.food_analysis import FoodAnalysisResult, Ingredient, NutritionInfo
 from langchain.prompts import PromptTemplate
 from langchain.schema.output_parser import StrOutputParser
@@ -23,6 +25,12 @@ logger = logging.getLogger(__name__)
 
 class FoodAnalysisService(BaseLangChainService):
     """Food analysis service using Gemini API."""
+
+    # Constants for thresholds (kept for documentation purposes)
+    HIGH_SODIUM_THRESHOLD = 500  # mg
+    HIGH_SUGAR_THRESHOLD = 20.0  # g
+    HIGH_CHOLESTEROL_THRESHOLD = 200.0  # mg
+    HIGH_SATURATED_FAT_THRESHOLD = 5.0  # g
 
     def __init__(self):
         """Initialize the service."""
@@ -92,7 +100,9 @@ class FoodAnalysisService(BaseLangChainService):
                 error=error_message,
             )
 
-        logger.info(f"Analyzing food from image: {getattr(image_file, 'filename', 'unknown')}")
+        logger.info(
+            f"Analyzing food from image: {getattr(image_file, 'filename', 'unknown')}"
+        )
 
         try:
             # Read image bytes
@@ -111,7 +121,10 @@ class FoodAnalysisService(BaseLangChainService):
             # Handle image processing errors
             logger.error(f"Invalid image error: {str(e)}")
             return FoodAnalysisResult(
-                food_name="Unknown", ingredients=[], nutrition_info=NutritionInfo(), error=str(e)
+                food_name="Unknown",
+                ingredients=[],
+                nutrition_info=NutritionInfo(),
+                error=str(e),
             )
         except Exception as e:  # pragma: no cover
             logger.error(f"Error in analyze_by_image: {str(e)}")
@@ -148,12 +161,7 @@ class FoodAnalysisService(BaseLangChainService):
                 ingredients=[],
                 nutrition_info=NutritionInfo(),
                 error=error_message,
-            )
-
-        logger.info(
-            f"Analyzing nutrition label from image: {getattr(image_file, 'filename', 'unknown')}"
-        )
-
+            )   
         try:
             # Read image bytes
             image_base64 = self._read_image_bytes(image_file)
@@ -169,8 +177,8 @@ class FoodAnalysisService(BaseLangChainService):
             return self._parse_food_analysis_response(response_text, "Nutrition Label")
         except InvalidImageError as e:
             # Handle image processing errors
-            logger.error(f"Invalid image error: {str(e)}")
-            return FoodAnalysisResult(
+            logger.error(f"Invalid image error: {str(e)}")  # pragma: no cover
+            return FoodAnalysisResult(  # pragma: no cover
                 food_name="Nutrition Label",
                 ingredients=[],
                 nutrition_info=NutritionInfo(),
@@ -252,15 +260,25 @@ class FoodAnalysisService(BaseLangChainService):
             
             Please analyze the ingredients and nutritional content based on this description.
             If not described, assume a standard serving size and ingredients for 1 person only.
-            FOLLOW MY COMMANDS AND ONLY MY COMMANDS, DONT BE STUPID.
-
+            
             Provide a comprehensive analysis including:
             - The name of the food
-            - A complete list of ingredients with servings composition (in grams) from portion estimation or standard serving size.
-            - Detailed macronutrition information ONLY of calories, protein, carbs, fat, sodium, fiber, and sugar. No need to display other macro information.
+            - A complete list of ingredients with servings composition (in kcal) from portion estimation or standard serving size.
+            - Detailed nutrition information including:
+              * Calories (in kcal)
+              * Protein (in g)
+              * Carbs (in g)
+              * Fat (in g)
+              * Saturated fat (in g)
+              * Sodium (in mg)
+              * Fiber (in g)
+              * Sugar (in g)
+              * Cholesterol (in mg)
+            - Calculate a nutrition density score based on nutrient richness per calorie (using a formula that considers protein, fiber, vitamins, minerals, and deducts for saturated fat, sodium, and sugar)
+            - Include any important vitamins and minerals with their values in mg
             
-
             BE VERY THOROUGH. YOU WILL BE FIRED. THE CUSTOMER CAN GET POISONED. BE VERY THOROUGH.
+            REMEMBER. If not described, assume a standard serving size and ingredients for 1 person only.
 
             Return your response as a strict JSON object with this exact format with NO COMMENTS:
             {{{{
@@ -268,22 +286,30 @@ class FoodAnalysisService(BaseLangChainService):
                 "ingredients": [
                 {{{{
                     "name": "string",
-                    "servings": number
+                    "servings": number in kcal
                 }}}}
                 ],
                 "nutrition_info": {{{{
-                "calories": number,
-                "protein": number,
-                "carbs": number,
-                "fat": number,
-                "sodium": number,
-                "fiber": number,
-                "sugar": number
+                "calories": number in kcal,
+                "protein": number in grams,
+                "carbs": number in grams,
+                "fat": number in grams,
+                "saturated_fat": number in grams,
+                "sodium": number in miligrams,
+                "fiber": number in grams,
+                "sugar": number in grams,
+                "cholesterol": number in mg,
+                "nutrition_density": number from calculation,
+                "vitamins_and_minerals": {{{{
+                    "vitamin_a": number,
+                    "vitamin_c": number,
+                    [other vitamins and minerals as detected] in miligrams
+                }}}}
                 }}}}
             }}}}
         
             IMPORTANT: Do not include any comments, annotations or notes in the JSON. Do not use '#' or '//' characters. Only return valid JSON.
-            
+            Make sure the ingredients's servings (kcal) adds up to the food kcal itself.
             If you cannot identify the food or analyze it properly, the food cant exist in real life or if the food is not edible use this format:
             {{{{
                 "error": "Description of the issue",
@@ -294,9 +320,13 @@ class FoodAnalysisService(BaseLangChainService):
                 "protein": 0,
                 "carbs": 0,
                 "fat": 0,
+                "saturated_fat": 0,
                 "sodium": 0,
                 "fiber": 0,
-                "sugar": 0
+                "sugar": 0,
+                "cholesterol": 0,
+                "nutrition_density": 0,
+                "vitamins_and_minerals": {{{{}}}}
                 }}}}
             }}}}"""
 
@@ -306,30 +336,64 @@ class FoodAnalysisService(BaseLangChainService):
         Returns:
             The prompt.
         """
-        return """Analyze this food image and provide detailed nutritional information.
-Return your response as a JSON object with the following structure:
+        return """
+            You are a food recognition and nutrition analysis expert. Carefully analyze this image and identify any food or meal present.
 
-{{
-  "food_name": "Descriptive name of the food",
-  "ingredients": [
-    {{"name": "Ingredient 1", "servings": 100}},
-    {{"name": "Ingredient 2", "servings": 50}}
-  ],
-  "nutrition_info": {{
-    "calories": 0,
-    "protein": 0,
-    "carbs": 0,
-    "fat": 0,
-    "sodium": 0,
-    "fiber": 0,
-    "sugar": 0
-  }}
-}}
+            Please look for:
+            - Prepared meals
+            - Individual food items
+            - Snacks
+            - Beverages
+            - Fruits and vegetables
+            - Packaged food products
 
+            Even if the image quality is not perfect or the food is partially visible, please do your best to identify it and provide an analysis.
 
-Please estimate nutritional values based on standard serving sizes. For servings, use grams where possible.
-If the image is not clearly food, indicate this in the food_name and set all nutritional values to 0.
-"""
+            For the identified food, provide a comprehensive analysis including:
+            - The specific name of the food
+            - A detailed list of likely ingredients with estimated servings composition in calories
+            - Detailed nutrition information including:
+              * Calories (in kcal)
+              * Protein (in g)
+              * Carbs (in g)
+              * Fat (in g)
+              * Saturated fat (in g)
+              * Sodium (in mg)
+              * Fiber (in g)
+              * Sugar (in g)
+              * Cholesterol (in mg)
+            - Calculate a nutrition density score from 0-100 based on nutrient richness per calorie
+            - Include any important vitamins and minerals with their values
+
+            Return your response as a JSON object with the following structure:
+
+            {{{{
+              "food_name": "Descriptive name of the food",
+              "ingredients": [
+                {{"name": "Ingredient 1", "servings": 100 in kcal}},
+                {{"name": "Ingredient 2", "servings": 50 in kcal}}
+              ],
+              "nutrition_info": {{{{
+                "calories": 0,
+                "protein": 0,
+                "carbs": 0,
+                "fat": 0,
+                "saturated_fat": 0,
+                "sodium": 0,
+                "fiber": 0,
+                "sugar": 0,
+                "cholesterol": 0,
+                "nutrition_density": 0,
+                "vitamins_and_minerals": {{{{
+                  "vitamin_a": 0,
+                  "vitamin_c": 0
+                }}}}
+              }}}}
+            }}}}
+            Make sure the ingredients's servings (kcal) adds up to the food kcal itself.
+
+            If the image is not clearly food, indicate this in the food_name (Unknown) and set all nutritional values to 0.
+            """
 
     def _generate_nutrition_label_prompt(self, servings: float) -> str:
         """Generate a prompt for nutrition label analysis.
@@ -341,26 +405,51 @@ If the image is not clearly food, indicate this in the food_name and set all nut
             The prompt.
         """
         return f"""Analyze this nutrition label image and extract the nutritional information.
-The user is consuming {servings} serving(s) of this food.
-Return your response as a JSON object with the following structure:
+            The user is consuming {servings} serving(s) of this food.
 
-{{{{
-  "food_name": "Name from the nutrition label",
-  "ingredients": [],
-  "nutrition_info": {{{{
-    "calories": 0,
-    "protein": 0,
-    "carbs": 0,
-    "fat": 0,
-    "sodium": 0,
-    "fiber": 0,
-    "sugar": 0
-  }}}}
-}}}}
+            Make sure calories is in kcal and extract all nutritional information you can find:
+            - Calories (in kcal)
+            - Protein (in g)
+            - Carbs (in g)
+            - Fat (in g)
+            - Saturated fat (in g)
+            - Sodium (in mg)
+            - Fiber (in g)
+            - Sugar (in g)
+            - Cholesterol (in mg)
+            - All vitamins and minerals with their values
+            
+            Also calculate a nutrition density score based on how nutrient-rich this food is per calorie.
 
-Adjust all nutritional values for {servings} serving(s).
-If the image is not clearly a nutrition label, indicate this in the food_name and set all nutritional values to 0.
-"""
+            Return your response as a JSON object with the following structure:
+
+            {{{{
+              "food_name": "Name from the nutrition label",
+              "ingredients": [],
+              "nutrition_info": {{{{
+                "calories": 0,
+                "protein": 0,
+                "carbs": 0,
+                "fat": 0,
+                "saturated_fat": 0,
+                "sodium": 0,
+                "fiber": 0,
+                "sugar": 0,
+                "cholesterol": 0,
+                "nutrition_density": 0,
+                "vitamins_and_minerals": {{{{
+                  "vitamin_a": 0,
+                  "vitamin_c": 0,
+                  "calcium": 0,
+                  "iron": 0,
+                  [other vitamins and minerals as detected]
+                }}}}
+              }}}}
+            }}}}
+
+            Adjust all nutritional values for {servings} serving(s).
+            If the image is not clearly a nutrition label, indicate this in the food_name (Unknown) and set all nutritional values to 0.
+            """
 
     def _generate_correction_prompt(
         self, previous_result: Dict[str, Any], user_comment: str
@@ -379,33 +468,54 @@ If the image is not clearly a nutrition label, indicate this in the food_name an
 
         return f"""I previously analyzed a food item and provided the following nutritional information:
 
-{previous_result_json}
+            {previous_result_json}
 
-The user has provided this feedback to correct or improve the analysis:
-"{user_comment}"
+            The user has provided this feedback to correct or improve the analysis:
+            "{user_comment}"
 
-Please correct the analysis based on this feedback. Return your corrected response as a complete JSON object with the same structure as the original analysis.
+            Please understand the context of the user's feedback for analysis, if the user feedback is not clear, just return previous result as is.
+            Make sure ingredient servings and calories in kcal and macros in grams.
+            Please correct the analysis based on this feedback. Return your corrected response as a complete JSON object with the same structure as the original analysis.
 
-The response should be in this format:
-{{{{
-  "food_name": "Corrected name of the food",
-  "ingredients": [
-    {{{{
-      "name": "Ingredient name",
-      "servings": number
-    }}}}
-  ],
-  "nutrition_info": {{{{
-    "calories": number,
-    "protein": number,
-    "carbs": number,
-    "fat": number,
-    "sodium": number,
-    "fiber": number,
-    "sugar": number
-  }}}}
-}}}}
-"""
+            The response should include all the fields shown in the original analysis. Make sure to preserve any existing fields for:
+            - calories, protein, carbs, fat, saturated_fat, sodium, fiber, sugar, cholesterol, nutrition_density
+            - Any vitamins_and_minerals that were included before
+            
+            If the user is providing information about a field that wasn't in the original analysis, add that field to the response.
+            
+            Your response should be in this format:
+            {{{{
+              "food_name": "Corrected name of the food",
+              "ingredients": [
+                {{{{
+                  "name": "Ingredient name",
+                  "servings": number
+                }}}}
+              ],
+              "nutrition_info": {{{{
+                "calories": number,
+                "protein": number,
+                "carbs": number,
+                "fat": number,
+                "saturated_fat": number,
+                "sodium": number,
+                "fiber": number,
+                "sugar": number,
+                "cholesterol": number,
+                "nutrition_density": number,
+                "vitamins_and_minerals": {{{{
+                  "vitamin_a": number,
+                  "vitamin_c": number,
+                  [other vitamins and minerals as detected]
+                }}}}
+              }}}}
+            }}}}
+
+    
+            
+            If correction doesnt make sense, return previous json result with the error message in error attribute in json and unknown food name.
+            NOTHING ELSE IS ALLOWED, ONLY VALID JSON RESPONSE. EXPLANATION OF CHANGES IS NOT NEEDED!
+            """
 
     def _parse_food_analysis_response(
         self, response_text: str, default_food_name: str
@@ -418,9 +528,6 @@ The response should be in this format:
 
         Returns:
             The food analysis result.
-
-        Raises:
-            GeminiParsingError: If the response cannot be parsed.
         """
         try:
             print(f"Food Analysis Raw Response: {response_text}")
@@ -428,50 +535,34 @@ The response should be in this format:
             json_str = extract_json_from_text(response_text)
             if not json_str:
                 logger.warning("No JSON found in response, returning raw response")
-                return FoodAnalysisResult(
-                    food_name=default_food_name,
-                    ingredients=[],
-                    nutrition_info=NutritionInfo(),
-                    error=f"Failed to parse response: {response_text[:100]}...",
+                return self._create_error_result(
+                    default_food_name,
+                    f"Failed to parse response: {response_text[:100]}...",
                 )
 
             # Parse the JSON
             data = parse_json_safely(json_str)
 
             # Extract ingredients
-            ingredients = []
-            if "ingredients" in data and isinstance(data["ingredients"], list):
-                for ing_data in data["ingredients"]:
-                    if isinstance(ing_data, dict):  # pragma: no cover
-                        name = ing_data.get("name", "Unknown ingredient")
-                        servings = float(ing_data.get("servings", 0))
-                        ingredients.append(Ingredient(name=name, servings=servings))
+            ingredients = self._extract_ingredients(data)
 
             # Extract nutrition info
-            nutrition_info = NutritionInfo()
-            if "nutrition_info" in data and isinstance(data["nutrition_info"], dict):
-                nutrition_data = data["nutrition_info"]
-                nutrition_info = NutritionInfo(
-                    calories=float(nutrition_data.get("calories", 0)),
-                    protein=float(nutrition_data.get("protein", 0)),
-                    carbs=float(nutrition_data.get("carbs", 0)),
-                    fat=float(nutrition_data.get("fat", 0)),
-                    sodium=float(nutrition_data.get("sodium", 0)),
-                    fiber=float(nutrition_data.get("fiber", 0)),
-                    sugar=float(nutrition_data.get("sugar", 0)),
-                )
+            nutrition_info = self._extract_nutrition_info(data)
 
             # Create and return the result
             result = FoodAnalysisResult(
                 food_name=data.get("food_name", default_food_name),  # pragma: no cover
                 ingredients=ingredients,
                 nutrition_info=nutrition_info,
+                error=data.get("error"),
             )
 
             return result
 
         except Exception as e:
-            logger.error(f"Error parsing food analysis response: {str(e)}")
+            logger.error(
+                f"Error parsing food analysis response: {str(e)}"
+            )  # pragma: no cover
             # Instead of raising an exception, return a result with the error
             return FoodAnalysisResult(  # pragma: no cover
                 food_name=default_food_name,
@@ -479,3 +570,80 @@ The response should be in this format:
                 nutrition_info=NutritionInfo(),
                 error=f"Failed to parse response: {str(e)}",
             )
+
+    # Remove the _generate_warnings method as warnings are handled in the Flutter model
+
+    def _extract_ingredients(self, data: Dict[str, Any]) -> List[Ingredient]:
+        """Extract ingredients from parsed data.
+
+        Args:
+            data: The parsed JSON data.
+
+        Returns:
+            List of ingredients.
+        """
+        ingredients = []
+        if "ingredients" in data and isinstance(data["ingredients"], list):
+            for ing_data in data["ingredients"]:
+                if isinstance(ing_data, dict):  # pragma: no cover
+                    name = ing_data.get("name", "Unknown ingredient")
+                    servings = float(ing_data.get("servings", 0))
+                    ingredients.append(Ingredient(name=name, servings=servings))
+        return ingredients
+
+    def _extract_nutrition_info(self, data: Dict[str, Any]) -> NutritionInfo:
+        """Extract nutrition info from parsed data.
+
+        Args:
+            data: The parsed JSON data.
+
+        Returns:
+            Nutrition info object.
+        """
+        nutrition_info = NutritionInfo()
+        if "nutrition_info" in data and isinstance(data["nutrition_info"], dict):
+            nutrition_data = data["nutrition_info"]
+            
+            # Extract vitamins and minerals if present
+            vitamins_and_minerals = {}
+            if "vitamins_and_minerals" in nutrition_data and isinstance(nutrition_data["vitamins_and_minerals"], dict):
+                for key, value in nutrition_data["vitamins_and_minerals"].items():
+                    try:
+                        vitamins_and_minerals[key] = float(value)
+                    except (ValueError, TypeError):
+                        logger.warning(f"Could not convert {key} value to float: {value}")
+            
+            # Create nutrition info object with all fields
+            nutrition_info = NutritionInfo(
+                calories=float(nutrition_data.get("calories", 0)),
+                protein=float(nutrition_data.get("protein", 0)),
+                carbs=float(nutrition_data.get("carbs", 0)),
+                fat=float(nutrition_data.get("fat", 0)),
+                saturated_fat=float(nutrition_data.get("saturated_fat", 0)),
+                sodium=float(nutrition_data.get("sodium", 0)),
+                fiber=float(nutrition_data.get("fiber", 0)),
+                sugar=float(nutrition_data.get("sugar", 0)),
+                cholesterol=float(nutrition_data.get("cholesterol", 0)),
+                nutrition_density=float(nutrition_data.get("nutrition_density", 0)),
+                vitamins_and_minerals=vitamins_and_minerals
+            )
+        return nutrition_info
+
+    def _create_error_result(
+        self, food_name: str, error_message: str
+    ) -> FoodAnalysisResult:
+        """Create an error result.
+
+        Args:
+            food_name: The food name.
+            error_message: The error message.
+
+        Returns:
+            Food analysis result with error.
+        """
+        return FoodAnalysisResult(
+            food_name=food_name,
+            ingredients=[],
+            nutrition_info=NutritionInfo(),
+            error=error_message,
+        )

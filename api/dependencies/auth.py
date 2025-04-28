@@ -30,11 +30,15 @@ try:
         cred = credentials.Certificate(creds_dict)
     elif credentials_path and os.path.exists(credentials_path):
         # Use credentials from file path
-        logger.info(f"Initializing Firebase with credentials from file: {credentials_path}")
+        logger.info(
+            f"Initializing Firebase with credentials from file: {credentials_path}"
+        )
         cred = credentials.Certificate(credentials_path)
     else:
         # Try to use individual environment variables
-        logger.info("Initializing Firebase with individual credential environment variables")
+        logger.info(
+            "Initializing Firebase with individual credential environment variables"
+        )
 
         # Required fields for a service account
         project_id = os.getenv("FIREBASE_PROJECT_ID")
@@ -45,7 +49,7 @@ try:
 
         if project_id and private_key and client_email:
             creds_dict = {
-                "type": "service_account",
+                "type": os.getenv("FIREBASE_ACCOUNT_TYPE", "service_account"),
                 "project_id": project_id,
                 "private_key": private_key,
                 "client_email": client_email,
@@ -53,16 +57,21 @@ try:
                 "auth_uri": os.getenv(
                     "FIREBASE_AUTH_URI", "https://accounts.google.com/o/oauth2/auth"
                 ),
-                "token_uri": os.getenv("FIREBASE_TOKEN_URI", "https://oauth2.googleapis.com/token"),
+                "token_uri": os.getenv(
+                    "FIREBASE_TOKEN_URI", "https://oauth2.googleapis.com/token"
+                ),
                 "auth_provider_x509_cert_url": os.getenv(
-                    "FIREBASE_AUTH_PROVIDER_CERT_URL", "https://www.googleapis.com/oauth2/v1/certs"
+                    "FIREBASE_AUTH_PROVIDER_CERT_URL",
+                    "https://www.googleapis.com/oauth2/v1/certs",
                 ),
                 "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT_URL", ""),
             }
             cred = credentials.Certificate(creds_dict)
         else:
             # As a last resort, try local file
-            logger.warning("No Firebase credentials found in environment, trying local file")
+            logger.warning(
+                "No Firebase credentials found in environment, trying local file"
+            )
             cred = credentials.Certificate("firebase-credentials.json")
 
     # Initialize the app
@@ -75,7 +84,9 @@ except Exception as e:
 security = HTTPBearer()
 
 
-async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[Any, Any]:
+async def verify_token(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> Dict[Any, Any]:
     """
     Verify the JWT token from Firebase.
 
@@ -96,7 +107,9 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
         return cast(Dict[Any, Any], decoded_token)
     except Exception as e:
         logger.error(f"Invalid token: {str(e)}")
-        raise HTTPException(status_code=401, detail=f"Invalid authentication credentials: {str(e)}")
+        raise HTTPException(
+            status_code=401, detail=f"Invalid authentication credentials: {str(e)}"
+        )
 
 
 async def get_current_user(token: dict = Depends(verify_token)) -> dict:

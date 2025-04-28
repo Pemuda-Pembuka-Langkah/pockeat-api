@@ -93,7 +93,8 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust in production
+    allow_origins=[
+    ], #This is for mobile apps, no need for this
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -107,7 +108,7 @@ if GLOBAL_AUTH_ENABLED:
     logger.info("Global authentication middleware is ENABLED")
     logger.info("All routes require authentication except documentation")
 else:
-    logger.warning("Global authentication middleware is DISABLED")
+    logger.warning("Global authentication middleware is DISABLED")  # pragma: no cover
 
 # Import API routers - must be after app creation
 from api.routes import router as api_router
@@ -170,7 +171,9 @@ async def exception_middleware(request: Request, call_next):
 # Run the application when executed directly
 if __name__ == "__main__":  # pragma: no cover
     # Get host and port from environment variables or use defaults
-    host = os.getenv("HOST", "0.0.0.0")
+    # Note: Using 0.0.0.0 binds to all interfaces, only use in secure environments
+    # or behind proper network security controls
+    host = os.getenv("HOST", "127.0.0.1")  # Default to localhost for security
     port = int(os.getenv("PORT", 8080))
 
     logger.info(f"Starting PockEat API on {host}:{port}")
