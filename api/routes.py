@@ -202,11 +202,19 @@ async def analyze_exercise(
 ):
     """Analyze exercise from description."""
     logger.info(
-        f"Analyzing exercise: {request.description[:50]}..., weight: {request.user_weight_kg}kg"
+        f"Analyzing exercise: {request.description[:50]}..., "
+        f"weight: {request.user_weight_kg}kg, "
+        f"height: {request.user_height_cm}cm, "
+        f"age: {request.user_age}, "
+        f"gender: {request.user_gender}"
     )
     try:
         result = await gemini.analyze_exercise(
-            request.description, request.user_weight_kg
+            request.description, 
+            request.user_weight_kg,
+            request.user_height_cm,
+            request.user_age,
+            request.user_gender
         )
         logger.info(f"Successfully analyzed exercise: {result.exercise_type}")
         return result
@@ -248,23 +256,21 @@ async def correct_food_text_analysis(
         )
 
 
-@router.post(
-    "/exercise/correct",
-    response_model=ExerciseAnalysisResult,
-    summary="Correct exercise analysis",
-    tags=["Exercise"],
-)
+@router.post("/exercise/correct")
 async def correct_exercise_analysis(
     request: ExerciseCorrectionRequest,
     gemini: GeminiService = Depends(get_gemini_service),
 ):
     """Correct exercise analysis."""
-    logger.info(
-        f"Correcting exercise analysis for: {request.previous_result.exercise_type}"
-    )
+    logger.info(f"Correcting exercise analysis for: {request.previous_result.exercise_type}, Previous comment: {request.user_comment}")
     try:
         result = await gemini.correct_exercise_analysis(
-            request.previous_result, request.user_comment
+            request.previous_result, 
+            request.user_comment,
+            request.user_weight_kg,
+            request.user_height_cm,
+            request.user_age,
+            request.user_gender
         )
         logger.info(f"Successfully corrected exercise analysis: {result.exercise_type}")
         return result
