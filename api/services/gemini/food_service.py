@@ -2,10 +2,13 @@
 Food analysis service using Gemini API.
 """
 
+import os
 import json
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 
+from supabase import create_client, Client
+from langchain.prompts import PromptTemplate
 from api.services.gemini.base_service import BaseLangChainService
 from api.services.gemini.exceptions import (
     GeminiServiceException,
@@ -17,11 +20,9 @@ from api.services.gemini.utils.json_parser import (
 )
 from api.models.food_analysis import FoodAnalysisResult, Ingredient, NutritionInfo
 from langchain.prompts import PromptTemplate
-from langchain.schema.output_parser import StrOutputParser
 
 # Configure logger
 logger = logging.getLogger(__name__)
-
 
 class FoodAnalysisService(BaseLangChainService):
     """Food analysis service using Gemini API."""
@@ -33,49 +34,134 @@ class FoodAnalysisService(BaseLangChainService):
     HIGH_SATURATED_FAT_THRESHOLD = 5.0  # g
 
     def __init__(self):
-        """Initialize the service."""
         super().__init__()
-        logger.info("Initializing FoodAnalysisService")
+        self.supabase_url = os.environ.get("SUPABASE_URL")
+        self.supabase_key = os.environ.get("SUPABASE_KEY")
+        if not self.supabase_url or not self.supabase_key:
+            logger.warning("Supabase URL or Key not found in environment variables. RAG will be disabled.")
+            self.supabase_client: Optional[Client] = None
+        else:
+            self.supabase_client: Client = create_client(self.supabase_url, self.supabase_key)
+
+    async def _retrieve_relevant_food_data(self, query: str) -> Tuple[List[Dict[str, Any]], str]:
+        """Retrieve relevant food records from Supabase and generate context for RAG."""
+        if not self.supabase_client:
+            logger.warning("Supabase client not initialized, skipping RAG retrieval.")
+            return [], ""
+
+        try:
+            # Step 1: Ekstrak nama makanan dari input user pakai Gemini
+            extracted_food = await self._extract_food_names_with_gemini(query)
+            if not extracted_food:
+                return [], ""
+
+            # Step 2: Ambil data nutrisi dari Supabase
+            cleaned_data = []
+            context_lines = ["\n\nRelevant Nutrition Facts From Local DB:\n"]
+
+            for food_name in extracted_food:
+                response = self.supabase_client.table("nutrition_data") \
+                    .select("*") \
+                    .ilike("food", f"%{food_name}%") \
+                    .limit(1) \
+                    .execute()
+
+                if response.data:
+                    entry = response.data[0]
+
+                    # Build cleaned data
+                    nutrition_info = {
+                        "calories": entry.get("caloric_value", 0.0),
+                        "protein": entry.get("protein", 0.0),
+                        "carbs": entry.get("carbohydrates", 0.0),
+                        "fat": entry.get("fat", 0.0),
+                        "saturated_fat": entry.get("saturated_fats", 0.0),
+                        "sodium": entry.get("sodium", 0.0),
+                        "fiber": entry.get("dietary_fiber", 0.0),
+                        "sugar": entry.get("sugars", 0.0),
+                        "cholesterol": entry.get("cholesterol", 0.0),
+                        "nutrition_density": entry.get("nutrition_density", 0.0),
+                        "vitamins_and_minerals": {
+                            "vitamin_a": entry.get("vitamin_a", 0.0),
+                            "vitamin_b1": entry.get("vitamin_b1", 0.0),
+                            "vitamin_b11": entry.get("vitamin_b11", 0.0),
+                            "vitamin_b12": entry.get("vitamin_b12", 0.0),
+                            "vitamin_b2": entry.get("vitamin_b2", 0.0),
+                            "vitamin_b3": entry.get("vitamin_b3", 0.0),
+                            "vitamin_b5": entry.get("vitamin_b5", 0.0),
+                            "vitamin_b6": entry.get("vitamin_b6", 0.0),
+                            "vitamin_c": entry.get("vitamin_c", 0.0),
+                            "vitamin_d": entry.get("vitamin_d", 0.0),
+                            "vitamin_e": entry.get("vitamin_e", 0.0),
+                            "vitamin_k": entry.get("vitamin_k", 0.0),
+                            "calcium": entry.get("calcium", 0.0),
+                            "copper": entry.get("copper", 0.0),
+                            "iron": entry.get("iron", 0.0),
+                            "magnesium": entry.get("magnesium", 0.0),
+                            "manganese": entry.get("manganese", 0.0),
+                            "phosphorus": entry.get("phosphorus", 0.0),
+                            "potassium": entry.get("potassium", 0.0),
+                            "selenium": entry.get("selenium", 0.0),
+                            "zinc": entry.get("zinc", 0.0)
+                        }
+                    }
+
+                    cleaned_data.append({
+                        "food_name": entry["food"],
+                        "nutrition_info": nutrition_info
+                    })
+
+                    # Add to RAG context
+                    context_lines.append(f"- Food: {entry['food']}")
+                    for k, v in nutrition_info.items():
+                        if k == "vitamins_and_minerals":
+                            context_lines.append("  Vitamins and minerals:")
+                            for vk, vv in v.items():
+                                context_lines.append(f"    - {vk}: {vv}")
+                        else:
+                            context_lines.append(f"  {k.replace('_', ' ').capitalize()}: {v}")
+                    context_lines.append("")
+
+            context_str = "\n".join(context_lines)
+            return cleaned_data, context_str
+
+        except Exception as e:
+            logger.error(f"Failed to retrieve relevant food data: {str(e)}")
+            return [], ""
+
 
     async def analyze_by_text(self, description: str) -> FoodAnalysisResult:
-        """Analyze food from a text description.
+        """Analyze food from a text description, using RAG if relevant data exists.
 
         Args:
             description: The food description.
 
         Returns:
             The food analysis result.
-
-        Raises:
-            GeminiServiceException: If the analysis fails.
         """
-        logger.info(f"Analyzing food from text: {description[:50]}...")
 
-        # Create a prompt template using the food text analysis prompt generator
-        prompt_text = self._generate_food_text_analysis_prompt(description)
-        prompt = PromptTemplate(input_variables=["description"], template=prompt_text)
-
+        # Step 1: Try to retrieve context from Supabase
+        _, context = await self._retrieve_relevant_food_data(description)
+        # Step 2: Inject description and context into prompt
         try:
-            # Use direct text model invocation instead of RunnableSequence
-            formatted_prompt = prompt.format(description=description)
-            response_text = await self._invoke_text_model(formatted_prompt)
-            logger.debug(f"Received response: {response_text[:100]}...")
+            prompt_text = self._generate_food_text_analysis_prompt(description=description, context=context)
+            prompt = PromptTemplate(input_variables=["description", "context"], template=prompt_text)
+            formatted_prompt = prompt.format(description=description, context=context)
 
-            # Parse the response
-            return self._parse_food_analysis_response(response_text, description)
+            # Step 3: Call Gemini model
+            response_text = await self._invoke_text_model(formatted_prompt)
+
+            # Step 4: Parse result
+            return self._parse_food_analysis_response(response_text, default_food_name=description)
         except GeminiServiceException:
-            # Re-raise GeminiServiceExceptions
             raise
         except Exception as e:
-            logger.error(f"Error in analyze_by_text: {str(e)}")
-            error_message = f"Failed to analyze food text: {str(e)}"
-
-            # Return result with error
+            logger.error(f"Error in analyze_by_text with RAG: {str(e)}")
             return FoodAnalysisResult(
                 food_name="Unknown",
                 ingredients=[],
                 nutrition_info=NutritionInfo(),
-                error=error_message,
+                error=f"Failed to analyze food text: {str(e)}"
             )
 
     async def analyze_by_image(self, image_file) -> FoodAnalysisResult:
@@ -100,10 +186,6 @@ class FoodAnalysisService(BaseLangChainService):
                 error=error_message,
             )
 
-        logger.info(
-            f"Analyzing food from image: {getattr(image_file, 'filename', 'unknown')}"
-        )
-
         try:
             # Read image bytes
             image_base64 = self._read_image_bytes(image_file)
@@ -113,7 +195,6 @@ class FoodAnalysisService(BaseLangChainService):
 
             # Invoke the multimodal model
             response_text = await self._invoke_multimodal_model(prompt, image_base64)
-            logger.debug(f"Received response: {response_text[:100]}...")
 
             # Parse the response
             return self._parse_food_analysis_response(response_text, "image")
@@ -171,7 +252,6 @@ class FoodAnalysisService(BaseLangChainService):
 
             # Invoke the multimodal model
             response_text = await self._invoke_multimodal_model(prompt, image_base64)
-            logger.debug(f"Received response: {response_text[:100]}...")
 
             # Parse the response
             return self._parse_food_analysis_response(response_text, "Nutrition Label")
@@ -211,9 +291,6 @@ class FoodAnalysisService(BaseLangChainService):
         Raises:
             GeminiServiceException: If the correction fails.
         """
-        logger.info(
-            f"Correcting food analysis for {previous_result.food_name} with comment: {user_comment}"
-        )
 
         # Convert the previous result to a dict for the prompt
         previous_result_dict = previous_result.dict(exclude={"timestamp", "id"})
@@ -224,7 +301,6 @@ class FoodAnalysisService(BaseLangChainService):
         try:
             # Invoke the model
             response_text = await self._invoke_text_model(prompt)
-            logger.debug(f"Received correction response: {response_text[:100]}...")
 
             # Parse the response
             corrected_result = self._parse_food_analysis_response(
@@ -246,7 +322,7 @@ class FoodAnalysisService(BaseLangChainService):
             previous_result.error = error_message
             return previous_result
 
-    def _generate_food_text_analysis_prompt(self, description: str) -> str:
+    def _generate_food_text_analysis_prompt(self, description: str, context: str = "") -> str:
         """Generate a prompt for food analysis.
 
         Args:
@@ -256,10 +332,15 @@ class FoodAnalysisService(BaseLangChainService):
             The prompt.
         """
         return f"""
-            You are a food recognition and nutrition analysis expert. Carefully analyze this food description: {description}
+            You are a food recognition and nutrition analysis expert. Carefully analyze this food description: {description}{context}
             
             Please analyze the ingredients and nutritional content based on this description.
             If not described, assume a standard serving size and ingredients for 1 person only.
+
+            If you were provided a nutrition context, you MUST use the nutrition values from that context.
+            You are allowed to generate nutrition information if the context does not contain an exact or close enough match.
+            Only use nutrition context from DB if it clearly matches the described food item.
+            Otherwise, use your expert knowledge to estimate it accurately.
             
             Provide a comprehensive analysis including:
             - The name of the food
@@ -307,7 +388,10 @@ class FoodAnalysisService(BaseLangChainService):
                 }}}}
                 }}}}
             }}}}
-        
+            ONLY return valid, parsable JSON. Do NOT include markdown ```json wrappers, comments, or extra explanations.
+            Make sure the JSON is valid and parsable. Do not include any comments, annotations or notes in the JSON.
+
+            IMPORTANT: Do not return a list. Return a single JSON object with the specified keys.
             IMPORTANT: Do not include any comments, annotations or notes in the JSON. Do not use '#' or '//' characters. Only return valid JSON.
             Make sure the ingredients's servings (kcal) adds up to the food kcal itself.
             If you cannot identify the food or analyze it properly, the food cant exist in real life or if the food is not edible use this format:
@@ -530,7 +614,32 @@ class FoodAnalysisService(BaseLangChainService):
             The food analysis result.
         """
         try:
-            print(f"Food Analysis Raw Response: {response_text}")
+            # Remove markdown code block if present
+            response_text = response_text.strip()
+
+            # Decode if it's in bytes and sanitize
+            if isinstance(response_text, bytes):
+                response_text = response_text.decode("utf-8", errors="replace")
+
+            # Replace known weird artifacts
+            response_text = response_text.replace('\ufeff', '')  # BOM
+            response_text = response_text.replace('<?xml version="1.0" encoding="UTF-8"?>', '')  # common header
+
+
+            # Remove any markdown code fence regardless of language
+            if response_text.startswith("```"):
+                response_text = response_text.split("```", 1)[-1].strip()
+            if response_text.endswith("```"):
+                response_text = response_text.rsplit("```", 1)[0].strip()
+
+            # Also remove weird XML-like headers
+            if response_text.startswith("<?"):
+                response_text = response_text.split("?>", 1)[-1].strip()
+            
+            # If it starts with 'json\n{', strip that broken markdown hint
+            if response_text.lower().startswith("json\n"):
+                response_text = response_text[5:].lstrip()
+
             # Extract JSON from the response
             json_str = extract_json_from_text(response_text)
             if not json_str:
@@ -647,3 +756,24 @@ class FoodAnalysisService(BaseLangChainService):
             nutrition_info=NutritionInfo(),
             error=error_message,
         )
+    
+    async def _extract_food_names_with_gemini(self, description: str) -> List[str]:
+        """Use Gemini to extract food names from a long user description."""
+        prompt = f"""
+    You are an expert in Indonesian food recognition.
+
+    From the following user input, extract a list of clearly named food or drink items mentioned.
+    Respond with only a valid JSON list. Do not include any other text.
+
+    Input:
+    "{description}"
+
+    Output format:
+    ["food name 1", "food name 2", "..."]
+    """
+        try:
+            response = await self._invoke_text_model(prompt)
+            return json.loads(response)
+        except Exception as e:
+            logger.error(f"Failed to extract food names: {e}")
+            return []
