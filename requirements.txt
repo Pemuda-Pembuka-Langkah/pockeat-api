@@ -34,3 +34,6 @@ httpx
 beautifulsoup4
 selenium
 webdriver-manager
+
+# Database
+supabase
