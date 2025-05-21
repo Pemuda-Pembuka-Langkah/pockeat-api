@@ -391,8 +391,7 @@ class FoodAnalysisService(BaseLangChainService):
             ONLY return valid, parsable JSON. Do NOT include markdown ```json wrappers, comments, or extra explanations.
             Make sure the JSON is valid and parsable. Do not include any comments, annotations or notes in the JSON.
 
-            IMPORTANT: Do not return a list. Return a single JSON object with the specified keys.
-            IMPORTANT: Do not include any comments, annotations or notes in the JSON. Do not use '#' or '//' characters. Only return valid JSON.
+            IMPORTANT: Do not return a list. Return a single JSON object with the specified keys. Do not include any comments, annotations or notes in the JSON. Do not use '#' or '//' characters. Only return valid JSON.
             Make sure the ingredients's servings (kcal) adds up to the food kcal itself.
             If you cannot identify the food or analyze it properly, the food cant exist in real life or if the food is not edible use this format:
             {{{{
