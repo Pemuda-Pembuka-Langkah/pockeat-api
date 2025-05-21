@@ -27,13 +27,21 @@ class ExerciseAnalysisService(BaseLangChainService):
         logger.info("Initializing ExerciseAnalysisService")
 
     async def analyze(
-        self, description: str, user_weight_kg: Optional[float] = None
+        self, 
+        description: str, 
+        user_weight_kg: Optional[float] = None,
+        user_height_cm: Optional[float] = None,
+        user_age: Optional[int] = None,
+        user_gender: Optional[str] = None
     ) -> ExerciseAnalysisResult:
         """Analyze an exercise description.
 
         Args:
             description: The exercise description.
             user_weight_kg: The user's weight in kilograms.
+            user_height_cm: The user's height in centimeters.
+            user_age: The user's age in years.
+            user_gender: The user's gender (male/female).
 
         Returns:
             The exercise analysis result.
@@ -43,9 +51,14 @@ class ExerciseAnalysisService(BaseLangChainService):
         """
         logger.info(f"Analyzing exercise: {description[:50]}...")
 
-        # Generate the prompt for exercise analysis
-        prompt = self._generate_exercise_analysis_prompt(description, user_weight_kg)
-
+        # Generate the prompt with all health metrics
+        prompt = self._generate_exercise_analysis_prompt(
+            description, 
+            user_weight_kg,
+            user_height_cm, 
+            user_age, 
+            user_gender
+        )
         try:
             # Invoke the model
             response_text = await self._invoke_text_model(prompt)
@@ -70,41 +83,33 @@ class ExerciseAnalysisService(BaseLangChainService):
             )
 
     async def correct_analysis(
-        self, previous_result: ExerciseAnalysisResult, user_comment: str
+        self, 
+        previous_result: ExerciseAnalysisResult, 
+        user_comment: Optional[str] = None,
+        user_weight_kg: Optional[float] = None,
+        user_height_cm: Optional[float] = None,
+        user_age: Optional[int] = None,
+        user_gender: Optional[str] = None
     ) -> ExerciseAnalysisResult:
-        """Correct a previous exercise analysis based on user feedback.
-
-        Args:
-            previous_result: The previous exercise analysis result.
-            user_comment: The user's feedback.
-
-        Returns:
-            The corrected exercise analysis result.
-
-        Raises:
-            GeminiServiceException: If the correction fails.
-        """
-        logger.info(
-            f"Correcting exercise analysis for {previous_result.exercise_type} with comment: {user_comment}"
-        )
-
-        # Convert the previous result to a dict for the prompt
-        previous_result_dict = previous_result.dict(exclude={"timestamp", "id"})
-
-        # Generate the prompt for correction
-        prompt = self._generate_correction_prompt(previous_result_dict, user_comment)
-
         try:
-            # Invoke the model
+            # Convert the previous result to a dict for the prompt
+            previous_result_dict = previous_result.dict(exclude={"timestamp", "id"})
+
+            # Generate the prompt for correction with health metrics
+            prompt = self._generate_correction_prompt(
+                previous_result_dict, 
+                user_comment,
+                user_weight_kg,
+                user_height_cm,
+                user_age,
+                user_gender
+            )
+
+            # Rest of the method remains the same
             response_text = await self._invoke_text_model(prompt)
             logger.debug(f"Received correction response: {response_text[:100]}...")
-
-            # Parse the response
             corrected_result = self._parse_exercise_analysis_response(response_text)
-
-            # Preserve the original ID
             corrected_result.id = previous_result.id
-
             return corrected_result
         except GeminiServiceException:
             # Re-raise GeminiServiceExceptions
@@ -118,80 +123,120 @@ class ExerciseAnalysisService(BaseLangChainService):
             return previous_result
 
     def _generate_exercise_analysis_prompt(
-        self, description: str, user_weight_kg: Optional[float] = None
+        self, 
+        description: str, 
+        user_weight_kg: Optional[float] = None,
+        user_height_cm: Optional[float] = None,
+        user_age: Optional[int] = None,
+        user_gender: Optional[str] = None
     ) -> str:
-        """Generate a prompt for exercise analysis.
-
-        Args:
-            description: The exercise description.
-            user_weight_kg: The user's weight in kilograms.
-
-        Returns:
-            The prompt.
-        """
-        weight_info = (
-            f"The user weighs {user_weight_kg} kg."
-            if user_weight_kg
-            else "Assume an average adult weight for calorie calculations."
-        )
+        # Create health metrics information string
+        health_info = []
+        if user_weight_kg:
+            health_info.append(f"Weight: {user_weight_kg} kg")
+        if user_height_cm:
+            health_info.append(f"Height: {user_height_cm} cm")
+        if user_age:
+            health_info.append(f"Age: {user_age} years")
+        if user_gender:
+            health_info.append(f"Gender: {user_gender}")
+        
+        health_info_str = ", ".join(health_info) if health_info else "Assume average adult metrics for calculations"
 
         return f"""
-    Analyze the following exercise description and provide detailed information. 
-First, evaluate if the description clearly mentions:
-1. The type of exercise (what activity)
-2. Duration of the exercise (how long)
-3. Intensity of the exercise (how hard)
+        Analyze the following exercise description and provide detailed information.
+    First, evaluate if the description clearly mentions:
+    1. The type of exercise (what activity)
+    2. Duration of the exercise (how long)
+    3. Intensity of the exercise (how hard)
 
-If ANY of these three elements are missing, return this error format:
-{{{{
-  "error": "Error in describing exercise",
-  "exercise_type": "unknown",
-  "calories_burned": 0,
-  "duration": "unknown",
-  "intensity": "unknown"
-}}}}
+    If ANY of these three elements are missing, return this error format:
+    {{{{
+    "error": "Error in describing exercise",
+    "exercise_type": "unknown",
+    "calories_burned": 0,
+    "duration": "unknown",
+    "intensity": "unknown",
+    "met_value": 0.0
+    }}}}
 
-Otherwise, if all elements are present, return your response as a JSON object with this structure:
-{{{{
-  "exercise_type": "Concise name of exercise based on description (e.g. 'Pushups', 'Running', 'Yoga', 'etc')",
-  "calories_burned": 0,
-  "duration": "xx seconds/minutes/hours",
-  "intensity": "Low/Medium/High"
-}}}}
+    Otherwise, if all elements are present, return your response as a JSON object with this structure (NOTE: Choose exactly ONE type of intensity):
+    {{{{
+    "exercise_type": "Concise name of exercise based on description",
+    "calories_burned": 0,
+    "duration": "xx seconds/minutes/hours",
+    "intensity": "Low/Medium/High",
+    "met_value": 0.0
+    }}}}
 
-Exercise description: {description}
+    Exercise description: {description}
 
-{weight_info}
+    User health data: {health_info_str}
 
-Please estimate calorie burn based on the exercise intensity and duration. Estimate using a concrete proven formula to get the calories burned. 
-"""
+    For calorie calculations, use the Mifflin-St Jeor equation to first calculate BMR:
+    - For males: BMR = (10 × weight [kg]) + (6.25 × height [cm]) – (5 × age [years]) + 5
+    - For females: BMR = (10 × weight [kg]) + (6.25 × height [cm]) – (5 × age [years]) – 161
+
+    Then calculate calories burned as: (BMR / 24) × MET value × duration in hours
+
+    Please identify the appropriate MET value for the exercise and include it in the response.
+    """
 
     def _generate_correction_prompt(
-        self, previous_result: Dict[str, Any], user_comment: str
+        self, previous_result: Dict[str, Any],
+        user_comment: Optional[str] = None, 
+        user_weight_kg: Optional[float] = None,
+        user_height_cm: Optional[float] = None,
+        user_age: Optional[int] = None,
+        user_gender: Optional[str] = None
     ) -> str:
-        """Generate a prompt for correction.
-
-        Args:
-            previous_result: The previous exercise analysis result as a dictionary.
-            user_comment: The user's feedback.
-
-        Returns:
-            The prompt.
-        """
+        """Generate a prompt for correction."""
         # Convert the previous result to a formatted JSON string
         previous_result_json = json.dumps(previous_result, indent=2)
+        
+        # Extract original input if available
+        original_input = previous_result.get("original_input", "Unknown")
+        
+        # Create health metrics information string
+        health_info = []
+        if user_weight_kg:
+            health_info.append(f"Weight: {user_weight_kg} kg")
+        if user_height_cm:
+            health_info.append(f"Height: {user_height_cm} cm")
+        if user_age:
+            health_info.append(f"Age: {user_age} years")
+        if user_gender:
+            health_info.append(f"Gender: {user_gender}")
+        
+        health_info_str = ", ".join(health_info) if health_info else "No health metrics provided"
 
         return f"""
-I previously analyzed an exercise and provided the following information:
+    I previously analyzed an exercise with description: "{original_input}"
 
-{previous_result_json}
+    Here is the previous analysis:
+    {previous_result_json}
 
-The user has provided this feedback to correct or improve the analysis:
-"{user_comment}"
+    The user has provided this feedback to correct or improve the analysis:
+    "{user_comment}"
 
-Please correct the analysis based on this feedback. Return your corrected response as a complete JSON object with the same structure as the original analysis.
-Estimate using a concrete proven formula to get the calories burned. 
-"""
+    User health data: {health_info_str}
+
+    Please correct the analysis based on this feedback. Return your corrected response as a complete JSON object with the same structure as the original analysis.
+    Estimate using a concrete proven formula to get the calories burned.
+    IMPORTANT: If the pace increases, you MUST INCREASE the MET. If the pace decreases, you MUST MAINTAIN the MET. UNLESS the user feedback explicitly mentions a different MET value.
+    
+    IMPORTANT: When user feedback only mentions correcting one parameter (e.g., only duration or only distance):
+    - If only duration is corrected, assume the same distance as originally stated
+    - If only distance is corrected, assume the same duration as originally stated
+
+    For calorie calculations, use the Mifflin-St Jeor equation to first calculate BMR:
+    - For males: BMR = (10 × weight [kg]) + (6.25 × height [cm]) – (5 × age [years]) + 5
+    - For females: BMR = (10 × weight [kg]) + (6.25 × height [cm]) – (5 × age [years]) – 161
+
+    Then calculate calories burned as: (BMR / 24) × MET value × duration in hours
+
+    RETURN THE OCORRECTED ANALYSIS JSON ONLY
+    """
 
     def _parse_exercise_analysis_response(
         self, response_text: str
@@ -225,6 +270,7 @@ Estimate using a concrete proven formula to get the calories burned.
             calories_burned = self._extract_calories_burned(data)
             duration = self._extract_duration(data)
             intensity = self._extract_intensity(data)
+            met_value = self._extract_met_value(data)
 
             # Create and return the result
             return ExerciseAnalysisResult(
@@ -232,7 +278,8 @@ Estimate using a concrete proven formula to get the calories burned.
                 calories_burned=calories_burned,
                 duration=duration,
                 intensity=intensity,
-                error=error,
+                met_value=met_value,
+                error=error,    
             )
 
         except Exception as e:
@@ -290,6 +337,21 @@ Estimate using a concrete proven formula to get the calories burned.
         if intensity not in valid_intensities:  # pragma: no cover
             intensity = "unknown"
         return intensity
+    
+    def _extract_met_value(self, data: Dict[str, Any]) -> float:
+        """Extract MET value from parsed data.
+
+        Args:
+            data: The parsed JSON data.
+
+        Returns:
+            MET value.
+        """
+        try:
+            return float(data.get("met_value", 0.0))
+        except (ValueError, TypeError):
+            return 0.0
+    
 
     def _create_error_result(self, error_message: str) -> ExerciseAnalysisResult:
         """Create an error result.

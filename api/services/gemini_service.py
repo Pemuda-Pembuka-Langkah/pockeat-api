@@ -111,37 +111,36 @@ class GeminiService:
     # Exercise analysis methods
 
     async def analyze_exercise(
-        self, description: str, user_weight_kg: Optional[float] = None
+        self, 
+        description: str, 
+        user_weight_kg: Optional[float] = None,
+        user_height_cm: Optional[float] = None,
+        user_age: Optional[int] = None,
+        user_gender: Optional[str] = None
     ) -> ExerciseAnalysisResult:
-        """Analyze an exercise description.
-
-        Args:
-            description: The exercise description.
-            user_weight_kg: The user's weight in kilograms.
-
-        Returns:
-            The exercise analysis result.
-
-        Raises:
-            GeminiServiceException: If the analysis fails.
-        """
-        return await self.exercise_service.analyze(description, user_weight_kg)
+        """Analyze an exercise description."""
+        return await self.exercise_service.analyze(
+            description, 
+            user_weight_kg,
+            user_height_cm,
+            user_age,
+            user_gender
+        )
 
     async def correct_exercise_analysis(
-        self, previous_result: ExerciseAnalysisResult, user_comment: str
+        self, 
+        previous_result: ExerciseAnalysisResult, 
+        user_comment: str,
+        user_weight_kg: Optional[float] = None,
+        user_height_cm: Optional[float] = None,
+        user_age: Optional[int] = None,
+        user_gender: Optional[str] = None
     ) -> ExerciseAnalysisResult:
-        """Correct a previous exercise analysis based on user feedback.
-
-        Args:
-            previous_result: The previous exercise analysis result.
-            user_comment: The user's feedback.
-
-        Returns:
-            The corrected exercise analysis result.
-
-        Raises:
-            GeminiServiceException: If the correction fails.
-        """
         return await self.exercise_service.correct_analysis(
-            previous_result, user_comment
+            previous_result, 
+            user_comment,
+            user_weight_kg,
+            user_height_cm,
+            user_age,
+            user_gender
         )
