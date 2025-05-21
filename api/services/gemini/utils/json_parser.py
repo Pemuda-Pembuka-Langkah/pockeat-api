@@ -25,34 +25,37 @@ def extract_json_from_text(text: str) -> Optional[str]:
     Returns:
         The extracted JSON string, or None if no JSON was found.
     """
-    # Log the input for debugging
-    logger.debug(f"Extracting JSON from text: {text[:100]}...")  # pragma: no cover
 
     # Try to extract JSON from markdown code blocks
     # Using a more efficient regex with atomic groups to prevent catastrophic backtracking
-    json_block_pattern = r"```(?:json)?(?>((?:(?!```).)*))```"
-    matches = re.findall(json_block_pattern, text, re.DOTALL)
+    json_block_pattern = r"```(?:json)?\s*(\{[\s\S]*?\})\s*```"
+    matches = re.findall(json_block_pattern, text)
+
+    def clean(json_str: str) -> str:
+        return json_str.strip().lstrip("?>").lstrip("\ufeff")
 
     if matches:
         # If we found JSON blocks, use the first one
-        return cast(str, matches[0].strip())
+        cleaned = clean(matches[0])
+        return cleaned
 
     # If no code blocks found, look for JSON objects or arrays
     # Using a safer pattern that avoids backtracking issues
     try:  # pragma: no cover
         # Look for objects
-        json_obj_pattern = r"({(?:[^{}]|(?R))*})"
-        match_obj = re.search(json_obj_pattern, text, re.DOTALL | re.X)
-
+        # Prefer full JSON object
+        json_obj_pattern = r"({[\s\S]*})"
+        match_obj = re.search(json_obj_pattern, text, re.DOTALL)
         if match_obj:
-            return cast(str, match_obj.group(0))
+            return clean(match_obj.group(0))
 
         # Look for arrays
-        json_arr_pattern = r"(\[(?:[^\[\]]|(?R))*\])"
-        match_arr = re.search(json_arr_pattern, text, re.DOTALL | re.X)
-
+        # Only fallback to arrays *if no object was found*
+        json_arr_pattern = r"(\[[\s\S]*\])"
+        match_arr = re.search(json_arr_pattern, text, re.DOTALL)
         if match_arr:
-            return cast(str, match_arr.group(0))
+            return clean(match_arr.group(0))
+        
     except re.error:  # pragma: no cover
         # Fallback to simpler pattern if the recursive pattern isn't supported
         json_pattern = (
@@ -61,7 +64,7 @@ def extract_json_from_text(text: str) -> Optional[str]:
         match = re.search(json_pattern, text, re.DOTALL)
 
         if match:
-            return cast(str, match.group(0))
+            return clean(match.group(0))
 
     # If we can't find JSON, return None
     logger.warning("No JSON found in text response")  # pragma: no cover
@@ -121,16 +124,17 @@ def fix_common_json_errors(json_str: str) -> str:  # pragma: no cover
     fixed = _fix_brackets(fixed)
     fixed = _fix_escaped_quotes(fixed)
 
-    logger.debug(f"Fixed JSON: {fixed[:100]}...")
     return fixed
-
 
 def _fix_quotes(json_str: str) -> str:
     """Replace single quotes with double quotes."""
     # Replace single quotes with double quotes, but only for keys and string values
-    fixed = re.sub(r"'([^']*)':", r'"\1":', json_str)
-    fixed = re.sub(r":\s*'([^']*)'", r': "\1"', fixed)
-    return fixed
+    json_str = json_str.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
+
+    # Replace single quotes for keys and string values
+    json_str = re.sub(r"'([^']*)':", r'"\1":', json_str)
+    json_str = re.sub(r":\s*'([^']*)'", r': "\1"', json_str)
+    return json_str
 
 
 def _fix_commas(json_str: str) -> str:

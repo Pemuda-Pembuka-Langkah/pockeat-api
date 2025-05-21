@@ -43,8 +43,8 @@ class FoodAnalysisResult(BaseModel):
     ingredients: List[Ingredient] = Field(
         default_factory=list, description="List of ingredients"
     )
-    nutrition_info: NutritionInfo = Field(
-        default_factory=NutritionInfo, description="Nutrition information"
+    nutrition_info: Optional[NutritionInfo] = Field(
+        default=None, description="Nutrition information"
     )
     health_score: Optional[float] = Field(
         default=None, description="Health score (calculated by Flutter model)"

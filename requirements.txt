@@ -29,3 +29,11 @@ pytest-asyncio
 black
 flake8
 httpx
+
+# Web scraping
+beautifulsoup4
+selenium
+webdriver-manager
+
+# Database
+supabase
